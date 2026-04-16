@@ -33,7 +33,6 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { InputField, TextareaField } from '../components/ui/Fields';
-import { LoadingState } from '../components/ui/LoadingState';
 import { useTranslation } from '../context/language-context';
 import { useToast } from '../context/toast-context';
 import { api } from '../lib/api-client';
@@ -1110,7 +1109,7 @@ export const RequestFormPage = () => {
               : '';
 
   if (loading) {
-    return <LoadingState label={t('requestForm.loading')} />;
+    return <div className="page request-create-page" aria-label="Create request workspace" />;
   }
 
   return (

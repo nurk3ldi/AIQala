@@ -1,19 +1,11 @@
 import {
-  Activity,
-  AlertTriangle,
-  Building2,
   CircleAlert,
   CircleCheckBig,
   Clock3,
-  Eye,
-  Layers3,
   LayoutGrid,
-  MapPin,
   Plus,
   Search,
   SlidersHorizontal,
-  Sparkles,
-  Workflow,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -22,7 +14,6 @@ import { Link } from 'react-router-dom';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
-import { LoadingState } from '../components/ui/LoadingState';
 import { PaginationControls } from '../components/ui/PaginationControls';
 import { SelectField } from '../components/ui/Fields';
 import { useAuth } from '../context/auth-context';
@@ -152,15 +143,9 @@ const REQUESTS_UI: Record<
   },
 };
 
-const STATUS_GRAPH_COLORS: Record<RequestStatus, string> = {
-  accepted: '#ffc25c',
-  in_progress: '#55e6ff',
-  resolved: '#4fe0b7',
-};
-
 const STATUS_ICONS = {
   accepted: CircleAlert,
-  in_progress: Workflow,
+  in_progress: Clock3,
   resolved: CircleCheckBig,
 } satisfies Record<RequestStatus, typeof CircleAlert>;
 
@@ -258,7 +243,11 @@ export const RequestsWorkspacePage = () => {
   }
 
   if (loading && !result) {
-    return <LoadingState label={t('requestsPage.loading')} />;
+    return (
+      <div className="page">
+        <section className="requests-minimal" aria-label="Requests workspace" />
+      </div>
+    );
   }
 
   const requests = result?.items ?? [];
@@ -277,7 +266,6 @@ export const RequestsWorkspacePage = () => {
           .some((value) => String(value).toLowerCase().includes(normalizedSearch)),
       )
     : requests;
-  const matchedTotal = result?.meta.total ?? 0;
   const visibleTotal = visibleRequests.length;
 
   const statusCounts: Record<RequestStatus, number> = {
@@ -285,45 +273,13 @@ export const RequestsWorkspacePage = () => {
     in_progress: 0,
     resolved: 0,
   };
-  const categoryCounts = new Map<string, { label: string; count: number }>();
-
-  let assignedCount = 0;
-  let urgentCount = 0;
-  let aiCount = 0;
 
   for (const request of visibleRequests) {
     statusCounts[request.status] += 1;
-
-    if (request.organizationId) {
-      assignedCount += 1;
-    }
-
-    if (request.priority === 'high') {
-      urgentCount += 1;
-    }
-
-    if (request.aiInsight) {
-      aiCount += 1;
-    }
-
-    const categoryLabel = request.category?.name ?? t('requestsPage.noCategory');
-    const currentCategory = categoryCounts.get(categoryLabel);
-
-    if (currentCategory) {
-      currentCategory.count += 1;
-    } else {
-      categoryCounts.set(categoryLabel, {
-        label: categoryLabel,
-        count: 1,
-      });
-    }
   }
 
-  const topCategories = Array.from(categoryCounts.values())
-    .sort((left, right) => right.count - left.count)
-    .slice(0, 3);
-  const strongestCategory = topCategories[0]?.count ?? 1;
   const activeFilterCount = [filters.status, filters.categoryId, filters.cityId, filters.districtId, filters.organizationId].filter(Boolean).length;
+  const title = user.role === 'user' ? t('requestsPage.myTitle') : t('requestsPage.listTitle');
 
   const statusTabs = [
     {
@@ -332,6 +288,7 @@ export const RequestsWorkspacePage = () => {
       value: visibleTotal,
       icon: LayoutGrid,
       active: !filters.status,
+      toneClassName: 'all',
     },
     {
       key: 'accepted' as const,
@@ -339,6 +296,7 @@ export const RequestsWorkspacePage = () => {
       value: statusCounts.accepted,
       icon: STATUS_ICONS.accepted,
       active: filters.status === 'accepted',
+      toneClassName: 'accepted',
     },
     {
       key: 'in_progress' as const,
@@ -346,6 +304,7 @@ export const RequestsWorkspacePage = () => {
       value: statusCounts.in_progress,
       icon: STATUS_ICONS.in_progress,
       active: filters.status === 'in_progress',
+      toneClassName: 'in-progress',
     },
     {
       key: 'resolved' as const,
@@ -353,6 +312,7 @@ export const RequestsWorkspacePage = () => {
       value: statusCounts.resolved,
       icon: STATUS_ICONS.resolved,
       active: filters.status === 'resolved',
+      toneClassName: 'resolved',
     },
   ];
 
@@ -388,17 +348,6 @@ export const RequestsWorkspacePage = () => {
         }
       : null,
   ].filter(Boolean) as Array<{ key: ActiveFilterField; value: string }>;
-
-  const donutStyle = {
-    background:
-      visibleTotal > 0
-        ? `conic-gradient(
-            ${STATUS_GRAPH_COLORS.accepted} 0deg ${(statusCounts.accepted / visibleTotal) * 360}deg,
-            ${STATUS_GRAPH_COLORS.in_progress} ${(statusCounts.accepted / visibleTotal) * 360}deg ${((statusCounts.accepted + statusCounts.in_progress) / visibleTotal) * 360}deg,
-            ${STATUS_GRAPH_COLORS.resolved} ${((statusCounts.accepted + statusCounts.in_progress) / visibleTotal) * 360}deg 360deg
-          )`
-        : 'conic-gradient(rgba(255,255,255,0.08) 0deg 360deg)',
-  };
 
   const organizationOptions = organizations.filter((organization) => !filterDraft.cityId || organization.cityId === filterDraft.cityId);
 
@@ -442,70 +391,25 @@ export const RequestsWorkspacePage = () => {
   };
 
   return (
-    <div className="page requests-dashboard">
-      <section className="page-header glass-card">
-        <div className="requests-page-title">
-          <div className="requests-page-title__head">
-            <strong>{user.role === 'user' ? t('requestsPage.myTitle') : t('requestsPage.listTitle')}</strong>
-            <span>{formatCompactNumber(matchedTotal)}</span>
+    <div className="page">
+      <section className="requests-minimal">
+        <header className="requests-minimal__hero">
+          <div className="requests-minimal__hero-copy">
+            <strong>{title}</strong>
           </div>
-          <p className="requests-dashboard__subtitle">{copy.subtitle[user.role]}</p>
-        </div>
-      </section>
 
-      <section className="requests-toolbar glass-card">
-        {user.role === 'user' ? (
-          <div className="requests-toolbar__actions">
-            <Link className="button button--primary button--md requests-toolbar__button" to="/requests/new">
-              <Plus size={17} />
-              <span>{t('requestsPage.newRequest')}</span>
-            </Link>
+          <div className="requests-minimal__hero-actions">
+            <span className="requests-minimal__hero-count">{formatCompactNumber(visibleTotal)}</span>
+            {user.role === 'user' ? (
+              <Link className="button button--primary button--md requests-minimal__new-button" to="/requests/new">
+                <Plus size={17} />
+                <span>{t('requestsPage.newRequest')}</span>
+              </Link>
+            ) : null}
           </div>
-        ) : null}
+        </header>
 
-        <div className="requests-overview-grid">
-            <article className="requests-overview-card">
-              <span className="requests-overview-card__icon">
-                <Layers3 size={18} />
-              </span>
-              <div className="requests-overview-card__copy">
-                <span>{copy.resultCount}</span>
-                <strong>{formatCompactNumber(matchedTotal)}</strong>
-              </div>
-            </article>
-
-            <article className="requests-overview-card">
-              <span className="requests-overview-card__icon">
-                <Eye size={18} />
-              </span>
-              <div className="requests-overview-card__copy">
-                <span>{copy.visibleCount}</span>
-                <strong>{formatCompactNumber(visibleTotal)}</strong>
-              </div>
-            </article>
-
-            <article className="requests-overview-card">
-              <span className="requests-overview-card__icon">
-                <Building2 size={18} />
-              </span>
-              <div className="requests-overview-card__copy">
-                <span>{copy.assignedCount}</span>
-                <strong>{formatCompactNumber(assignedCount)}</strong>
-              </div>
-            </article>
-
-            <article className="requests-overview-card">
-              <span className="requests-overview-card__icon requests-overview-card__icon--danger">
-                <AlertTriangle size={18} />
-              </span>
-              <div className="requests-overview-card__copy">
-                <span>{copy.urgentCount}</span>
-                <strong>{formatCompactNumber(urgentCount)}</strong>
-              </div>
-            </article>
-        </div>
-
-        <div className="requests-status-strip">
+        <div className="requests-minimal__status-strip">
           {statusTabs.map((tab) => {
             const Icon = tab.icon;
 
@@ -513,7 +417,7 @@ export const RequestsWorkspacePage = () => {
               <button
                 key={tab.key}
                 type="button"
-                className={`requests-status-tab ${tab.active ? 'requests-status-tab--active' : ''}`.trim()}
+                className={`requests-minimal__status-tab requests-minimal__status-tab--tone-${tab.toneClassName} ${tab.active ? 'requests-minimal__status-tab--active' : ''}`.trim()}
                 onClick={() =>
                   setFilters((current) => ({
                     ...current,
@@ -522,10 +426,10 @@ export const RequestsWorkspacePage = () => {
                   }))
                 }
               >
-                <span className="requests-status-tab__icon">
+                <span className="requests-minimal__status-tab-icon">
                   <Icon size={18} />
                 </span>
-                <span className="requests-status-tab__copy">
+                <span className="requests-minimal__status-tab-copy">
                   <strong>{tab.label}</strong>
                   <span>{formatCompactNumber(tab.value)}</span>
                 </span>
@@ -534,8 +438,8 @@ export const RequestsWorkspacePage = () => {
           })}
         </div>
 
-        <div className="requests-controls">
-          <label className="requests-search" aria-label={copy.searchPlaceholder}>
+        <div className="requests-minimal__toolbar">
+          <label className="requests-minimal__search" aria-label={copy.searchPlaceholder}>
             <Search size={17} />
             <input
               type="search"
@@ -545,21 +449,21 @@ export const RequestsWorkspacePage = () => {
             />
           </label>
 
-          <Button type="button" variant="secondary" className="requests-toolbar__button requests-controls__filter" onClick={openFilterModal}>
+          <Button type="button" variant="secondary" className="requests-minimal__filter-button" onClick={openFilterModal}>
             <SlidersHorizontal size={17} />
             <span>{copy.filterAction}</span>
-            {activeFilterCount ? <span className="requests-toolbar__count">{activeFilterCount}</span> : null}
+            {activeFilterCount ? <span className="requests-minimal__toolbar-count">{activeFilterCount}</span> : null}
           </Button>
         </div>
 
         {activeFilters.length ? (
-          <div className="requests-active-filters">
-            <span className="requests-active-filters__label">{copy.activeFiltersTitle}</span>
+          <div className="requests-minimal__active-filters">
+            <span className="requests-minimal__active-filters-label">{copy.activeFiltersTitle}</span>
             {activeFilters.map((filter) => (
               <button
                 key={filter.key}
                 type="button"
-                className="requests-filter-chip"
+                className="requests-minimal__filter-chip"
                 onClick={() => clearSingleFilter(filter.key)}
               >
                 <span>{filter.value}</span>
@@ -568,62 +472,40 @@ export const RequestsWorkspacePage = () => {
             ))}
           </div>
         ) : null}
-      </section>
-
-      <section className="requests-board">
-        <div className="requests-stream glass-card" aria-busy={loading}>
-          {!requests.length ? (
+        <section className="requests-minimal__list" aria-busy={loading}>
+          {!visibleRequests.length ? (
             <EmptyState title={t('requestsPage.emptyTitle')} description={t('requestsPage.emptyDescription')} />
           ) : (
-            <div className="requests-grid">
+            <div className="requests-minimal__rows">
               {visibleRequests.map((request) => {
                 const StatusIcon = STATUS_ICONS[request.status];
 
                 return (
-                  <article key={request.id} className={`requests-card requests-card--${request.status}`.trim()}>
-                    <div className="requests-card__header">
-                      <div className="requests-card__identity">
-                        <span className={`requests-card__status-icon requests-card__status-icon--${request.status}`.trim()}>
+                  <article key={request.id} className={`requests-minimal__row requests-minimal__row--${request.status}`.trim()}>
+                    <div className="requests-minimal__row-head">
+                      <div className="requests-minimal__row-title-wrap">
+                        <span className={`requests-minimal__row-status requests-minimal__row-status--${request.status}`.trim()}>
                           <StatusIcon size={18} />
                         </span>
-                        <div className="requests-card__title">
-                          <h3>{request.title}</h3>
+
+                        <div className="requests-minimal__row-copy">
+                          <div className="requests-minimal__row-title-line">
+                            <h3>{request.title}</h3>
+                            <div className="requests-minimal__row-badges">
+                              <Badge tone={statusTone(request.status)}>{formatStatusLabel(request.status)}</Badge>
+                              <Badge tone={priorityTone(request.priority)}>{formatPriorityLabel(request.priority)}</Badge>
+                              {request.aiInsight ? <Badge tone="accent">{copy.aiLabel}</Badge> : null}
+                              <span className="requests-minimal__row-date">
+                                <Clock3 size={14} />
+                                {formatDateTime(request.createdAt)}
+                              </span>
+                            </div>
+                          </div>
                           <p>{request.description}</p>
                         </div>
                       </div>
 
-                      <div className="requests-card__badges">
-                        <Badge tone={statusTone(request.status)}>{formatStatusLabel(request.status)}</Badge>
-                        <Badge tone={priorityTone(request.priority)}>{formatPriorityLabel(request.priority)}</Badge>
-                        {request.aiInsight ? <Badge tone="accent">{copy.aiLabel}</Badge> : null}
-                      </div>
-                    </div>
-
-                    <div className="requests-card__meta">
-                      <span className="requests-card__meta-item">
-                        <Layers3 size={14} />
-                        {request.category?.name ?? t('requestsPage.noCategory')}
-                      </span>
-                      <span className="requests-card__meta-item">
-                        <MapPin size={14} />
-                        {request.city?.name ?? t('requestsPage.unknownCity')}
-                        {request.district?.name ? ` / ${request.district.name}` : ''}
-                      </span>
-                      <span className="requests-card__meta-item">
-                        <Building2 size={14} />
-                        {request.organization?.name
-                          ? t('requestsPage.assignedToOrganization', { name: request.organization.name })
-                          : t('requestsPage.notAssigned')}
-                      </span>
-                    </div>
-
-                    <div className="requests-card__footer">
-                      <span className="requests-card__date">
-                        <Clock3 size={14} />
-                        {formatDateTime(request.createdAt)}
-                      </span>
-
-                      <Link className="button button--secondary button--sm requests-card__link" to={`/requests/${request.id}`}>
+                      <Link className="button button--secondary button--sm requests-minimal__details" to={`/requests/${request.id}`}>
                         <span>{t('common.details')}</span>
                       </Link>
                     </div>
@@ -638,76 +520,12 @@ export const RequestsWorkspacePage = () => {
             totalPages={result?.meta.totalPages ?? 1}
             onChange={(page) => setFilters((current) => ({ ...current, page }))}
           />
-        </div>
+        </section>
 
-        <aside className="requests-side">
-          <section className="requests-side-card glass-card">
-            <div className="requests-side-card__head">
-              <strong>{copy.distributionTitle}</strong>
-            </div>
-
-            <div className="requests-donut-layout">
-              <div className="requests-donut" style={donutStyle}>
-                <div className="requests-donut__center">
-                  <strong>{formatCompactNumber(visibleTotal)}</strong>
-                  <span>{t('requestsPage.eyebrow')}</span>
-                </div>
-              </div>
-
-              <div className="requests-status-list">
-                {(['accepted', 'in_progress', 'resolved'] as const).map((status) => (
-                  <div key={status} className="requests-status-row">
-                    <span className={`requests-status-row__dot requests-status-row__dot--${status}`.trim()} />
-                    <span>{formatStatusLabel(status)}</span>
-                    <strong>{formatCompactNumber(statusCounts[status])}</strong>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <section className="requests-side-card glass-card">
-            <div className="requests-side-card__head">
-              <strong>{copy.categoryTitle}</strong>
-            </div>
-
-            {topCategories.length ? (
-              <div className="requests-category-list">
-                {topCategories.map((category) => (
-                  <div key={category.label} className="requests-category-row">
-                    <div className="requests-category-row__meta">
-                      <span>{category.label}</span>
-                      <strong>{formatCompactNumber(category.count)}</strong>
-                    </div>
-                    <div className="requests-category-row__track">
-                      <div
-                        className="requests-category-row__fill"
-                        style={{ width: `${(category.count / strongestCategory) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="requests-side-card__empty">
-                <Activity size={18} />
-                <span>{copy.noData}</span>
-              </div>
-            )}
-
-            <div className="requests-side-card__footer">
-              <span className="requests-side-card__footer-chip">
-                <Sparkles size={14} />
-                {copy.aiLabel}
-              </span>
-              <strong>{formatCompactNumber(aiCount)}</strong>
-            </div>
-          </section>
-        </aside>
       </section>
 
       {filterModalOpen ? (
-        <div className="profile-modal requests-filter-modal-shell">
+        <div className="profile-modal requests-filter-modal-shell" role="dialog" aria-modal="true" aria-label={copy.filterTitle}>
           <button
             type="button"
             className="profile-modal__backdrop"

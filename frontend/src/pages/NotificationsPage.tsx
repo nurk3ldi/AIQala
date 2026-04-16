@@ -9,7 +9,7 @@ import { useTranslation } from '../context/language-context';
 import { useToast } from '../context/toast-context';
 import { api } from '../lib/api-client';
 import { getErrorMessage } from '../lib/errors';
-import { formatDateTime, humanizeNotificationType } from '../lib/format';
+import { formatCompactNumber, formatDateTime, humanizeNotificationType } from '../lib/format';
 import type { Notification, PaginatedResult } from '../types/api';
 
 type NotificationViewItem = Notification & {
@@ -203,38 +203,76 @@ export const NotificationsPage = () => {
     return <Workflow size={18} />;
   };
 
+  const getToneClassName = (item: NotificationViewItem) => {
+    if (item.icon === 'assigned' || item.type === 'request_assigned') {
+      return 'assigned';
+    }
+
+    if (item.icon === 'comment' || item.type === 'request_comment_added') {
+      return 'comment';
+    }
+
+    return 'status';
+  };
+
   if (loading && !result) {
-    return <LoadingState label={t('notifications.loading')} />;
+    return (
+      <div className="page">
+        <section className="notifications-minimal">
+          <div className="notifications-minimal__hero">
+            <div className="notifications-minimal__hero-copy">
+              <strong>{t('layout.notifications')}</strong>
+            </div>
+          </div>
+
+          <section className="panel glass-card notifications-minimal__panel">
+            <LoadingState label={t('notifications.loading')} />
+          </section>
+        </section>
+      </div>
+    );
   }
 
   return (
     <div className="page">
-      <section className="panel glass-card">
+      <section className="notifications-minimal">
+        <div className="notifications-minimal__hero">
+          <div className="notifications-minimal__hero-copy">
+            <strong>{t('layout.notifications')}</strong>
+          </div>
+          <span className="notifications-minimal__hero-count">{formatCompactNumber(visibleItems.length)}</span>
+        </div>
+
+        <section className="panel glass-card notifications-minimal__panel">
         <div className="notification-list">
           {visibleItems.map((notification) => (
             <article
               key={notification.id}
-              className={`notification-item ${notification.isMock ? 'notification-item--mock' : ''}`.trim()}
+              className={`notification-item notification-item--${getToneClassName(notification)} ${notification.isMock ? 'notification-item--mock' : ''} ${!notification.isRead ? 'notification-item--unread' : 'notification-item--read'}`.trim()}
             >
-              <div className="notification-item__icon">{getIcon(notification)}</div>
+              <div className={`notification-item__icon notification-item__icon--${getToneClassName(notification)}`.trim()}>{getIcon(notification)}</div>
               <div className="notification-item__body">
                 <div className="notification-item__head">
                   <strong className="eyebrow">{humanizeNotificationType(notification.type)}</strong>
-                  {notification.isMock ? <Badge tone="accent">Demo</Badge> : null}
+                  <div className="notification-item__head-meta">
+                    {notification.isMock ? <Badge tone="accent">Demo</Badge> : null}
+                    <span className="muted-text">{formatDateTime(notification.createdAt)}</span>
+                  </div>
                 </div>
                 <h4>{notification.title}</h4>
                 <p>{notification.message}</p>
-                <span className="muted-text">{formatDateTime(notification.createdAt)}</span>
               </div>
-              {notification.isMock ? (
-                <span className="muted-text">Demo</span>
-              ) : !notification.isRead ? (
-                <Button variant="secondary" size="sm" onClick={() => markRead(notification.id)}>
-                  {t('notifications.markRead')}
-                </Button>
-              ) : (
-                <span className="muted-text">{t('notifications.read')}</span>
-              )}
+              <div className="notification-item__actions">
+                {notification.isMock ? (
+                  <span className="muted-text">Demo</span>
+                ) : !notification.isRead ? (
+                  <Button variant="secondary" size="sm" onClick={() => markRead(notification.id)}>
+                    {t('notifications.markRead')}
+                  </Button>
+                ) : (
+                  <span className="muted-text">{t('notifications.read')}</span>
+                )}
+              </div>
             </article>
           ))}
         </div>
@@ -244,6 +282,7 @@ export const NotificationsPage = () => {
           totalPages={result?.meta.totalPages ?? 1}
           onChange={setPage}
         />
+        </section>
       </section>
     </div>
   );

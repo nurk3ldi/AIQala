@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { EmptyState } from '../components/ui/EmptyState';
 import { InputField, SelectField, TextareaField } from '../components/ui/Fields';
 import { LoadingState } from '../components/ui/LoadingState';
 import { useAuth } from '../context/auth-context';
@@ -19,7 +18,7 @@ import {
   resolveFileUrl,
   statusTone,
 } from '../lib/format';
-import type { DraftCommentResult, IssueRequest, Organization, RequestAnalysisResult } from '../types/api';
+import type { DraftCommentResult, IssueRequest, Organization } from '../types/api';
 
 export const RequestDetailPage = () => {
   const { id } = useParams();
@@ -30,9 +29,7 @@ export const RequestDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [request, setRequest] = useState<IssueRequest | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [analysis, setAnalysis] = useState<RequestAnalysisResult | null>(null);
   const [draft, setDraft] = useState<DraftCommentResult | null>(null);
-  const [analysisBusy, setAnalysisBusy] = useState(false);
   const [assignBusy, setAssignBusy] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
   const [commentBusy, setCommentBusy] = useState(false);
@@ -124,27 +121,6 @@ export const RequestDetailPage = () => {
       priority: detail.priority,
     });
     setStatusValue(detail.status);
-  };
-
-  const analyzeRequest = async () => {
-    if (!id) {
-      return;
-    }
-
-    setAnalysisBusy(true);
-
-    try {
-      const result = await api.ai.analyzeExistingRequest(id);
-      setAnalysis(result);
-    } catch (error) {
-      pushToast({
-        tone: 'error',
-        title: t('requestDetail.analyzeFailed'),
-        description: getErrorMessage(error),
-      });
-    } finally {
-      setAnalysisBusy(false);
-    }
   };
 
   const assignRequest = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -312,13 +288,23 @@ export const RequestDetailPage = () => {
     return null;
   }
 
-  const visibleAnalysis = analysis ?? request.aiInsight?.analysis ?? null;
+  const imageMedia = (request.media ?? []).filter((item) => item.type === 'image');
+  const requestPhotos = imageMedia.filter((item) => !item.uploadedByOrganizationId);
+  const organizationPhotos = imageMedia.filter((item) => Boolean(item.uploadedByOrganizationId));
+  const hasSidePanel = user?.role === 'admin' || user?.role === 'organization';
+  const mainInfoTitle = '\u0411\u0430\u0441\u0442\u044b \u0430\u049b\u043f\u0430\u0440\u0430\u0442';
+  const photosTitle = '\u04e8\u0442\u0456\u043d\u0456\u0448 \u0444\u043e\u0442\u043e\u043b\u0430\u0440\u044b';
+  const commentsTitle = '\u041f\u0456\u043a\u0456\u0440\u043b\u0435\u0440';
+  const requestPhotosLabel = '\u04e8\u0442\u0456\u043d\u0456\u0448\u043a\u0435 \u0442\u0456\u0440\u043a\u0435\u043b\u0433\u0435\u043d \u0444\u043e\u0442\u043e';
+  const organizationPhotosLabel = '\u04b0\u0439\u044b\u043c \u0436\u04af\u043a\u0442\u0435\u0433\u0435\u043d \u0444\u043e\u0442\u043e';
+  const requestPhotosEmpty = '\u0424\u043e\u0442\u043e \u04d9\u043b\u0456 \u0442\u0456\u0440\u043a\u0435\u043b\u043c\u0435\u0433\u0435\u043d.';
+  const organizationPhotosEmpty = '\u04b0\u0439\u044b\u043c \u0444\u043e\u0442\u043e \u0436\u04af\u043a\u0442\u0435\u043c\u0435\u0433\u0435\u043d.';
+  const organizationPhotoAlt = '\u04b0\u0439\u044b\u043c \u0444\u043e\u0442\u043e\u0441\u044b';
 
   return (
-    <div className="page">
+    <div className="page request-detail-minimal">
       <section className="page-header glass-card">
         <div>
-          <span className="eyebrow">{t('requestDetail.eyebrow')}</span>
           <h1>{request.title}</h1>
           <p>{request.description}</p>
         </div>
@@ -328,12 +314,11 @@ export const RequestDetailPage = () => {
         </div>
       </section>
 
-      <section className="split-layout">
+      <section className={`split-layout request-detail-minimal__layout ${hasSidePanel ? '' : 'request-detail-minimal__layout--full'}`.trim()}>
         <div className="page">
           <article className="panel glass-card">
             <div className="panel__header">
-              <span className="section-title__eyebrow">{t('requestDetail.mainInfoEyebrow')}</span>
-              <h3>{t('requestDetail.mainInfoTitle')}</h3>
+              <h3>{mainInfoTitle}</h3>
             </div>
             <div className="kv-grid">
               <div className="kv-item">
@@ -370,44 +355,48 @@ export const RequestDetailPage = () => {
 
           <article className="panel glass-card">
             <div className="panel__header">
-              <span className="section-title__eyebrow">{t('requestDetail.aiEyebrow')}</span>
-              <h3>{t('requestDetail.aiTitle')}</h3>
+              <span className="section-title__eyebrow">Фотолар</span>
+              <h3>{photosTitle}</h3>
             </div>
-            <div className="toolbar">
-              <Button variant="secondary" busy={analysisBusy} onClick={analyzeRequest}>
-                {t('requestDetail.analyzeCurrent')}
-              </Button>
+            <div className="request-detail-media-split">
+              <section className="request-detail-media-group">
+                <h4>{requestPhotosLabel}</h4>
+                {requestPhotos.length ? (
+                  <div className="request-detail-media-grid">
+                    {requestPhotos.map((item) => (
+                      <article key={item.id} className="request-detail-media-item">
+                        <img src={resolveFileUrl(item.fileUrl)} alt={request.title} />
+                        <div className="request-detail-media-meta">{formatDateTime(item.createdAt)}</div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="request-detail-media-empty">{requestPhotosEmpty}</p>
+                )}
+              </section>
+
+              <section className="request-detail-media-group">
+                <h4>{organizationPhotosLabel}</h4>
+                {organizationPhotos.length ? (
+                  <div className="request-detail-media-grid">
+                    {organizationPhotos.map((item) => (
+                      <article key={item.id} className="request-detail-media-item">
+                        <img src={resolveFileUrl(item.fileUrl)} alt={request.organization?.name ?? organizationPhotoAlt} />
+                        <div className="request-detail-media-meta">{formatDateTime(item.createdAt)}</div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="request-detail-media-empty">{organizationPhotosEmpty}</p>
+                )}
+              </section>
             </div>
-            {visibleAnalysis ? (
-              <div className="page">
-                <div className="record-card">
-                  <div className="record-card__footer">
-                    <Badge tone="accent">{visibleAnalysis.issueType}</Badge>
-                    <Badge tone="warning">{formatPriorityLabel(visibleAnalysis.priority)}</Badge>
-                  </div>
-                  <p className="muted-text">{visibleAnalysis.summary}</p>
-                  <p className="muted-text">{visibleAnalysis.reasoning}</p>
-                </div>
-                <div className="kv-grid">
-                  <div className="kv-item">
-                    <span>{t('common.suggestedCategory')}</span>
-                    <strong>{visibleAnalysis.suggestedCategory?.name ?? t('common.no')}</strong>
-                  </div>
-                  <div className="kv-item">
-                    <span>{t('common.suggestedOrganization')}</span>
-                    <strong>{visibleAnalysis.suggestedOrganization?.name ?? t('common.no')}</strong>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <EmptyState title={t('requestDetail.aiEmptyTitle')} description={t('requestDetail.aiEmptyDescription')} />
-            )}
           </article>
 
           <article className="panel glass-card">
             <div className="panel__header">
               <span className="section-title__eyebrow">{t('requestDetail.discussionEyebrow')}</span>
-              <h3>{t('requestDetail.discussionTitle')}</h3>
+              <h3>{commentsTitle}</h3>
             </div>
             {request.comments?.length ? (
               <div className="comment-thread">
@@ -422,35 +411,12 @@ export const RequestDetailPage = () => {
                 ))}
               </div>
             ) : (
-              <EmptyState title={t('requestDetail.commentsEmptyTitle')} description={t('requestDetail.commentsEmptyDescription')} />
-            )}
-          </article>
-
-          <article className="panel glass-card">
-            <div className="panel__header">
-              <span className="section-title__eyebrow">{t('requestDetail.mediaEyebrow')}</span>
-              <h3>{t('requestDetail.mediaTitle')}</h3>
-            </div>
-            {request.media?.length ? (
-              <div className="media-grid">
-                {request.media.map((item) => (
-                  <article key={item.id} className="media-item">
-                    {item.type === 'image' ? (
-                      <img src={resolveFileUrl(item.fileUrl)} alt={t('requestDetail.mediaTitle')} />
-                    ) : (
-                      <video controls src={resolveFileUrl(item.fileUrl)} />
-                    )}
-                    <div className="media-item__meta">{formatDateTime(item.createdAt)}</div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <EmptyState title={t('requestDetail.mediaEmptyTitle')} description={t('requestDetail.mediaEmptyDescription')} />
+              <p className="request-detail-comments-empty">{t('requestDetail.commentsEmptyDescription')}</p>
             )}
           </article>
         </div>
 
-        <div className="page">
+        {hasSidePanel ? <div className="page">
           {user?.role === 'admin' ? (
             <article className="panel glass-card">
               <div className="panel__header">
@@ -610,7 +576,7 @@ export const RequestDetailPage = () => {
               </article>
             </>
           ) : null}
-        </div>
+        </div> : null}
       </section>
     </div>
   );

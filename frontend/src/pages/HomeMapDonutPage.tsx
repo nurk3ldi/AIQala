@@ -315,7 +315,6 @@ export const HomeMapDonutPage = () => {
   const [loading, setLoading] = useState(true);
   const [issues, setIssues] = useState<MapIssue[]>([]);
   const [activeIssue, setActiveIssue] = useState<MapIssue | null>(null);
-  const [activeIssueBusyId, setActiveIssueBusyId] = useState<string | null>(null);
   const [isActiveIssueExpanded, setIsActiveIssueExpanded] = useState(false);
   const copy = HOME_UI[language];
 
@@ -391,7 +390,6 @@ export const HomeMapDonutPage = () => {
 
   useEffect(() => {
     setActiveIssue(null);
-    setActiveIssueBusyId(null);
     setIsActiveIssueExpanded(false);
   }, [selectedCityId]);
 
@@ -443,8 +441,6 @@ export const HomeMapDonutPage = () => {
       return;
     }
 
-    setActiveIssueBusyId(issue.id);
-
     try {
       const detail = await loadIssueDetailForRole(user.role, issue.id);
       const detailLat = parseCoordinate(detail.latitude);
@@ -466,8 +462,6 @@ export const HomeMapDonutPage = () => {
         title: t('requestDetail.loadFailed'),
         description: getErrorMessage(error),
       });
-    } finally {
-      setActiveIssueBusyId((current) => (current === issue.id ? null : current));
     }
   };
 
@@ -556,13 +550,8 @@ export const HomeMapDonutPage = () => {
                   </div>
 
                   {!isActiveIssueExpanded ? (
-                    <div className="home-minimal__detail-media">
-                      <div className="home-minimal__detail-section-head">
-                        <span>{t('requestDetail.mediaTitle')}</span>
-                        {activeIssueBusyId === activeIssue.id ? <small>{t('requestDetail.loading')}</small> : null}
-                      </div>
-
-                      {activeIssue.media?.length ? (
+                    activeIssue.media?.length ? (
+                      <div className="home-minimal__detail-media">
                         <div className="home-minimal__detail-media-track">
                           {activeIssue.media.map((item) => (
                             <article key={item.id} className="home-minimal__detail-media-item">
@@ -574,10 +563,8 @@ export const HomeMapDonutPage = () => {
                             </article>
                           ))}
                         </div>
-                      ) : (
-                        <p className="home-minimal__detail-empty">{t('requestDetail.mediaEmptyDescription')}</p>
-                      )}
-                    </div>
+                      </div>
+                    ) : null
                   ) : null}
 
                   {isActiveIssueExpanded ? (
