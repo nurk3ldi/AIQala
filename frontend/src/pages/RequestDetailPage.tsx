@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -300,6 +301,7 @@ export const RequestDetailPage = () => {
   const requestPhotosEmpty = '\u0424\u043e\u0442\u043e \u04d9\u043b\u0456 \u0442\u0456\u0440\u043a\u0435\u043b\u043c\u0435\u0433\u0435\u043d.';
   const organizationPhotosEmpty = '\u04b0\u0439\u044b\u043c \u0444\u043e\u0442\u043e \u0436\u04af\u043a\u0442\u0435\u043c\u0435\u0433\u0435\u043d.';
   const organizationPhotoAlt = '\u04b0\u0439\u044b\u043c \u0444\u043e\u0442\u043e\u0441\u044b';
+  const backToRequestsText = '\u049a\u0430\u0439\u0442\u0443';
 
   return (
     <div className="page request-detail-minimal">
@@ -307,10 +309,16 @@ export const RequestDetailPage = () => {
         <div>
           <h1>{request.title}</h1>
           <p>{request.description}</p>
+          <div className="request-detail-minimal__status-row request-detail-minimal__status-row--under-title">
+            <Badge tone={statusTone(request.status)}>{formatStatusLabel(request.status)}</Badge>
+            <Badge tone={priorityTone(request.priority)}>{formatPriorityLabel(request.priority)}</Badge>
+          </div>
         </div>
         <div className="page-header__actions">
-          <Badge tone={statusTone(request.status)}>{formatStatusLabel(request.status)}</Badge>
-          <Badge tone={priorityTone(request.priority)}>{formatPriorityLabel(request.priority)}</Badge>
+          <Button type="button" variant="secondary" className="request-detail-minimal__back-button" onClick={() => navigate('/requests')}>
+            <ArrowLeft size={15} />
+            {backToRequestsText}
+          </Button>
         </div>
       </section>
 
@@ -330,12 +338,6 @@ export const RequestDetailPage = () => {
                 <strong>
                   {request.city?.name ?? t('common.unknown')}
                   {request.district?.name ? ` / ${request.district.name}` : ''}
-                </strong>
-              </div>
-              <div className="kv-item">
-                <span>{t('common.coordinates')}</span>
-                <strong>
-                  {request.latitude}, {request.longitude}
                 </strong>
               </div>
               <div className="kv-item">
