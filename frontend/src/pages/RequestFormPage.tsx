@@ -12,7 +12,7 @@ import { api } from '../lib/api-client';
 import { getErrorMessage } from '../lib/errors';
 import type { Category, District } from '../types/api';
 
-const REQUEST_PHOTO_LIMIT = 5;
+const REQUEST_PHOTO_LIMIT = 3;
 const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const DEFAULT_LATITUDE = '51.1694';
 const DEFAULT_LONGITUDE = '71.4491';
@@ -44,13 +44,13 @@ const CREATE_PAGE_COPY = {
     classify: 'Санат және орын',
     location: 'Орналасу нүктесі',
     photos: 'Фотолар',
-    photosHint: 'Міндетті емес, максимум 5 фото.',
+    photosHint: 'Міндетті емес, максимум 3 фото.',
     noDistrict: 'Аудан таңдалмаған',
     cityCenter: 'Қала центрін қою',
     back: 'Қайту',
     submit: 'Жіберу',
     invalidPhotoType: 'Тек JPG, PNG, WEBP форматтары қолданылады.',
-    photoLimit: 'Бір өтінімге максимум 5 фото қосылады.',
+    photoLimit: 'Бір өтінімге максимум 3 фото қосылады.',
     coordsInvalid: 'Координатаны дұрыс енгізіңіз.',
     validationTitle: 'Өрістер толық емес',
     validationDescription: 'Тақырып, сипаттама, санат, қала және координата міндетті.',
@@ -64,13 +64,13 @@ const CREATE_PAGE_COPY = {
     classify: 'Категория и место',
     location: 'Точка на карте',
     photos: 'Фото',
-    photosHint: 'Необязательно, максимум 5 фото.',
+    photosHint: 'Необязательно, максимум 3 фото.',
     noDistrict: 'Район не выбран',
     cityCenter: 'Поставить центр города',
     back: 'Назад',
     submit: 'Отправить',
     invalidPhotoType: 'Поддерживаются только JPG, PNG, WEBP.',
-    photoLimit: 'Максимум 5 фото для одной заявки.',
+    photoLimit: 'Максимум 3 фото для одной заявки.',
     coordsInvalid: 'Проверьте корректность координат.',
     validationTitle: 'Поля заполнены не полностью',
     validationDescription: 'Заголовок, описание, категория, город и координаты обязательны.',
@@ -84,13 +84,13 @@ const CREATE_PAGE_COPY = {
     classify: 'Category and place',
     location: 'Location point',
     photos: 'Photos',
-    photosHint: 'Optional, up to 5 photos.',
+    photosHint: 'Optional, up to 3 photos.',
     noDistrict: 'No district selected',
     cityCenter: 'Use city center',
     back: 'Back',
     submit: 'Submit',
     invalidPhotoType: 'Only JPG, PNG, WEBP files are supported.',
-    photoLimit: 'Maximum 5 photos per request.',
+    photoLimit: 'Maximum 3 photos per request.',
     coordsInvalid: 'Please check coordinate values.',
     validationTitle: 'Required fields are missing',
     validationDescription: 'Title, description, category, city, and coordinates are required.',
@@ -105,6 +105,8 @@ export const RequestFormPage = () => {
   const { pushToast } = useToast();
   const { cities, selectedCityId } = useOutletContext<AppShellOutletContext>();
   const copy = CREATE_PAGE_COPY[language];
+  const photosHintText = copy.photosHint.replace(/\d+/, String(REQUEST_PHOTO_LIMIT));
+  const photoLimitText = copy.photoLimit.replace(/\d+/, String(REQUEST_PHOTO_LIMIT));
 
   const [loading, setLoading] = useState(true);
   const [submitBusy, setSubmitBusy] = useState(false);
@@ -269,7 +271,7 @@ export const RequestFormPage = () => {
         pushToast({
           tone: 'error',
           title: copy.photos,
-          description: copy.photoLimit,
+          description: photoLimitText,
         });
       }
 
@@ -463,7 +465,7 @@ export const RequestFormPage = () => {
 
         <section className="request-create-minimal__section">
           <h3>{copy.photos}</h3>
-          <p className="request-create-minimal__hint">{copy.photosHint}</p>
+          <p className="request-create-minimal__hint">{photosHintText}</p>
           <InputField label={copy.photos} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handlePhotoSelect} />
           {photos.length ? (
             <div className="request-create-minimal__photos-list">

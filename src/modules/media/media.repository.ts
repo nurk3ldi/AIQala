@@ -15,4 +15,13 @@ export class MediaRepository {
       },
     });
   }
+
+  countOrganizationMediaByRequest(requestId: string, organizationId: string): Promise<number> {
+    return MediaModel.count({
+      where: {
+        requestId,
+        uploadedByOrganizationId: organizationId,
+      },
+    });
+  }
 }

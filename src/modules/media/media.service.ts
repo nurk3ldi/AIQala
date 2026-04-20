@@ -28,4 +28,8 @@ export class MediaService {
   countUserMediaByRequest(requestId: string, userId: string) {
     return this.mediaRepository.countUserMediaByRequest(requestId, userId);
   }
+
+  countOrganizationMediaByRequest(requestId: string, organizationId: string) {
+    return this.mediaRepository.countOrganizationMediaByRequest(requestId, organizationId);
+  }
 }

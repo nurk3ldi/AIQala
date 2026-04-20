@@ -2,10 +2,13 @@ import {
   CircleAlert,
   CircleCheckBig,
   Clock3,
+  Eye,
   LayoutGrid,
+  Pencil,
   Plus,
   Search,
   SlidersHorizontal,
+  Trash2,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -14,8 +17,8 @@ import { Link } from 'react-router-dom';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
+import { InputField, SelectField, TextareaField } from '../components/ui/Fields';
 import { PaginationControls } from '../components/ui/PaginationControls';
-import { SelectField } from '../components/ui/Fields';
 import { useAuth } from '../context/auth-context';
 import { useTranslation } from '../context/language-context';
 import { useToast } from '../context/toast-context';
@@ -40,6 +43,17 @@ type RequestFilterState = {
   cityId: string;
   districtId: string;
   organizationId: string;
+};
+
+type RequestEditDraft = {
+  title: string;
+  description: string;
+  categoryId: string;
+  cityId: string;
+  districtId: string;
+  latitude: string;
+  longitude: string;
+  priority: IssueRequest['priority'];
 };
 
 type ActiveFilterField = 'status' | 'categoryId' | 'cityId' | 'districtId' | 'organizationId';
@@ -73,6 +87,7 @@ const REQUESTS_UI: Record<
     activeFiltersTitle: string;
     aiLabel: string;
     statsAll: string;
+    cancelAction: string;
   }
 > = {
   kk: {
@@ -96,6 +111,7 @@ const REQUESTS_UI: Record<
     activeFiltersTitle: 'Белсенді сүзгілер',
     aiLabel: 'AI',
     statsAll: 'Барлығы',
+    cancelAction: 'Бас тарту',
   },
   ru: {
     subtitle: {
@@ -118,6 +134,7 @@ const REQUESTS_UI: Record<
     activeFiltersTitle: 'Активные фильтры',
     aiLabel: 'AI',
     statsAll: 'Все',
+    cancelAction: 'Отмена',
   },
   en: {
     subtitle: {
@@ -140,6 +157,7 @@ const REQUESTS_UI: Record<
     activeFiltersTitle: 'Active filters',
     aiLabel: 'AI',
     statsAll: 'All',
+    cancelAction: 'Cancel',
   },
 };
 
@@ -165,6 +183,13 @@ export const RequestsWorkspacePage = () => {
   const [filterDraft, setFilterDraft] = useState<RequestFilterState>(() => createDefaultFilters());
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editTarget, setEditTarget] = useState<IssueRequest | null>(null);
+  const [editDraft, setEditDraft] = useState<RequestEditDraft | null>(null);
+  const [editBusy, setEditBusy] = useState(false);
+  const [editDistricts, setEditDistricts] = useState<District[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<IssueRequest | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     void Promise.all([
@@ -199,6 +224,34 @@ export const RequestsWorkspacePage = () => {
       active = false;
     };
   }, [filterDraft.cityId, filterModalOpen, filters.cityId]);
+
+  useEffect(() => {
+    const cityId = editDraft?.cityId;
+
+    if (!cityId) {
+      setEditDistricts([]);
+      return;
+    }
+
+    let active = true;
+
+    void api.locations.districts
+      .list({ cityId })
+      .then((items) => {
+        if (active) {
+          setEditDistricts(items);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setEditDistricts([]);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [editDraft?.cityId]);
 
   useEffect(() => {
     let active = true;
@@ -236,7 +289,7 @@ export const RequestsWorkspacePage = () => {
     return () => {
       active = false;
     };
-  }, [filters, pushToast, t, user]);
+  }, [filters, pushToast, reloadKey, t, user]);
 
   if (!user) {
     return null;
@@ -390,6 +443,101 @@ export const RequestsWorkspacePage = () => {
     });
   };
 
+  const openEditModal = (request: IssueRequest) => {
+    setEditTarget(request);
+    setEditDraft({
+      title: request.title,
+      description: request.description,
+      categoryId: request.categoryId,
+      cityId: request.cityId,
+      districtId: request.districtId ?? '',
+      latitude: request.latitude,
+      longitude: request.longitude,
+      priority: request.priority,
+    });
+  };
+
+  const closeEditModal = () => {
+    if (editBusy) {
+      return;
+    }
+
+    setEditTarget(null);
+    setEditDraft(null);
+  };
+
+  const submitEdit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!editTarget || !editDraft) {
+      return;
+    }
+
+    setEditBusy(true);
+
+    try {
+      await api.requests.update(editTarget.id, {
+        title: editDraft.title,
+        description: editDraft.description,
+        categoryId: editDraft.categoryId,
+        cityId: editDraft.cityId,
+        districtId: editDraft.districtId || undefined,
+        latitude: editDraft.latitude,
+        longitude: editDraft.longitude,
+        priority: editDraft.priority,
+      });
+
+      pushToast({
+        tone: 'success',
+        title: t('common.save'),
+      });
+      closeEditModal();
+      setReloadKey((current) => current + 1);
+    } catch (error) {
+      pushToast({
+        tone: 'error',
+        title: t('common.edit'),
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
+  const closeDeleteModal = () => {
+    if (deleteBusy) {
+      return;
+    }
+
+    setDeleteTarget(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    setDeleteBusy(true);
+
+    try {
+      await api.requests.remove(deleteTarget.id);
+      pushToast({
+        tone: 'success',
+        title: t('requestDetail.deleteSuccessTitle'),
+      });
+      setDeleteTarget(null);
+      setReloadKey((current) => current + 1);
+    } catch (error) {
+      pushToast({
+        tone: 'error',
+        title: t('requestDetail.deleteFailed'),
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
   return (
     <div className="page">
       <section className="requests-minimal">
@@ -505,9 +653,44 @@ export const RequestsWorkspacePage = () => {
                         </div>
                       </div>
 
-                      <Link className="button button--secondary button--sm requests-minimal__details" to={`/requests/${request.id}`}>
-                        <span>{t('common.details')}</span>
-                      </Link>
+                      <div className="requests-minimal__row-actions">
+                        <Link
+                          className="button button--secondary button--sm requests-minimal__icon-action"
+                          to={`/requests/${request.id}`}
+                          aria-label={t('common.details')}
+                          title={t('common.details')}
+                        >
+                          <Eye size={15} />
+                        </Link>
+
+                        {(user.role === 'admin' || user.role === 'user') ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="requests-minimal__icon-action"
+                            onClick={() => openEditModal(request)}
+                            aria-label={t('common.edit')}
+                            title={t('common.edit')}
+                          >
+                            <Pencil size={15} />
+                          </Button>
+                        ) : null}
+
+                        {(user.role === 'admin' || user.role === 'user') ? (
+                          <Button
+                            type="button"
+                            variant="danger"
+                            size="sm"
+                            className="requests-minimal__icon-action"
+                            onClick={() => setDeleteTarget(request)}
+                            aria-label={t('common.delete')}
+                            title={t('common.delete')}
+                          >
+                            <Trash2 size={15} />
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   </article>
                 );
@@ -652,6 +835,178 @@ export const RequestsWorkspacePage = () => {
                 <Button type="submit">{copy.applyFilters}</Button>
               </div>
             </form>
+          </article>
+        </div>
+      ) : null}
+
+      {editTarget && editDraft ? (
+        <div className="profile-modal requests-edit-modal-shell" role="dialog" aria-modal="true" aria-label={t('common.edit')}>
+          <button
+            type="button"
+            className="profile-modal__backdrop"
+            aria-label={t('common.close')}
+            onClick={closeEditModal}
+          />
+          <article className="profile-modal__card glass-card requests-edit-modal">
+            <div className="profile-modal__header">
+              <h3>{t('common.edit')}</h3>
+              <button type="button" className="profile-modal__close" onClick={closeEditModal} aria-label={t('common.close')}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form className="profile-modal__form requests-edit-modal__form" onSubmit={submitEdit}>
+              <InputField
+                label={t('common.title')}
+                value={editDraft.title}
+                minLength={4}
+                maxLength={200}
+                onChange={(event) => setEditDraft((current) => (current ? { ...current, title: event.target.value } : current))}
+                required
+              />
+
+              <SelectField
+                label={t('common.priority')}
+                value={editDraft.priority}
+                onChange={(event) =>
+                  setEditDraft((current) =>
+                    current ? { ...current, priority: event.target.value as IssueRequest['priority'] } : current,
+                  )
+                }
+              >
+                <option value="low">{t('requestPriority.low')}</option>
+                <option value="medium">{t('requestPriority.medium')}</option>
+                <option value="high">{t('requestPriority.high')}</option>
+              </SelectField>
+
+              <TextareaField
+                label={t('common.description')}
+                value={editDraft.description}
+                minLength={10}
+                maxLength={4000}
+                className="requests-edit-modal__textarea"
+                onChange={(event) =>
+                  setEditDraft((current) => (current ? { ...current, description: event.target.value } : current))
+                }
+                required
+              />
+
+              <SelectField
+                label={t('common.category')}
+                value={editDraft.categoryId}
+                onChange={(event) =>
+                  setEditDraft((current) => (current ? { ...current, categoryId: event.target.value } : current))
+                }
+                required
+              >
+                <option value="">{t('requestFilters.allCategories')}</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </SelectField>
+
+              <SelectField
+                label={t('common.city')}
+                value={editDraft.cityId}
+                onChange={(event) =>
+                  setEditDraft((current) =>
+                    current ? { ...current, cityId: event.target.value, districtId: '' } : current,
+                  )
+                }
+                required
+              >
+                <option value="">{t('requestFilters.allCities')}</option>
+                {cities.map((city) => (
+                  <option key={city.id} value={city.id}>
+                    {city.name}
+                  </option>
+                ))}
+              </SelectField>
+
+              <SelectField
+                label={t('common.district')}
+                value={editDraft.districtId}
+                onChange={(event) =>
+                  setEditDraft((current) => (current ? { ...current, districtId: event.target.value } : current))
+                }
+                disabled={!editDraft.cityId}
+              >
+                <option value="">{t('requestFilters.allDistricts')}</option>
+                {editDistricts.map((district) => (
+                  <option key={district.id} value={district.id}>
+                    {district.name}
+                  </option>
+                ))}
+              </SelectField>
+
+              <InputField
+                label={t('common.latitude')}
+                value={editDraft.latitude}
+                onChange={(event) =>
+                  setEditDraft((current) => (current ? { ...current, latitude: event.target.value } : current))
+                }
+                required
+              />
+
+              <InputField
+                label={t('common.longitude')}
+                value={editDraft.longitude}
+                onChange={(event) =>
+                  setEditDraft((current) => (current ? { ...current, longitude: event.target.value } : current))
+                }
+                required
+              />
+
+              <div className="profile-modal__actions">
+                <Button type="button" variant="ghost" onClick={closeEditModal} disabled={editBusy}>
+                  {copy.cancelAction}
+                </Button>
+                <Button type="submit" busy={editBusy}>
+                  {t('common.save')}
+                </Button>
+              </div>
+            </form>
+          </article>
+        </div>
+      ) : null}
+
+      {deleteTarget ? (
+        <div className="profile-modal requests-delete-modal-shell" role="dialog" aria-modal="true" aria-label={t('common.delete')}>
+          <button
+            type="button"
+            className="profile-modal__backdrop"
+            aria-label={t('common.close')}
+            onClick={closeDeleteModal}
+          />
+          <article className="profile-modal__card glass-card requests-delete-modal">
+            <div className="profile-modal__form requests-delete-modal__content">
+              <button
+                type="button"
+                className="profile-modal__close requests-delete-modal__close"
+                onClick={closeDeleteModal}
+                aria-label={t('common.close')}
+              >
+                <X size={18} />
+              </button>
+
+              <div className="requests-delete-modal__icon-wrap" aria-hidden="true">
+                <Trash2 size={24} />
+              </div>
+
+              <h3 className="requests-delete-modal__heading">{t('common.delete')}</h3>
+              <p className="requests-delete-modal__text">{t('requestDetail.deleteConfirm')}</p>
+
+              <div className="requests-delete-modal__actions">
+                <Button type="button" variant="ghost" onClick={closeDeleteModal} disabled={deleteBusy}>
+                  {copy.cancelAction}
+                </Button>
+                <Button type="button" variant="danger" onClick={confirmDelete} busy={deleteBusy}>
+                  {t('common.delete')}
+                </Button>
+              </div>
+            </div>
           </article>
         </div>
       ) : null}

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Pencil, Trash2, X } from 'lucide-react';
+import { CircleMarker, MapContainer, TileLayer, useMap } from 'react-leaflet';
+
+import 'leaflet/dist/leaflet.css';
 
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -19,7 +22,33 @@ import {
   resolveFileUrl,
   statusTone,
 } from '../lib/format';
-import type { DraftCommentResult, IssueRequest, Organization } from '../types/api';
+import type { Comment, DraftCommentResult, IssueRequest, Organization } from '../types/api';
+
+const REQUEST_DETAIL_FALLBACK_CENTER: [number, number] = [51.1694, 71.4491];
+const REQUEST_DETAIL_PHOTO_LIMIT = 3;
+
+const parseCoordinate = (value: string | null | undefined): number | null => {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(value.replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const RequestDetailMapSizer = () => {
+  const map = useMap();
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      map.invalidateSize();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [map]);
+
+  return null;
+};
 
 export const RequestDetailPage = () => {
   const { id } = useParams();
@@ -34,13 +63,21 @@ export const RequestDetailPage = () => {
   const [assignBusy, setAssignBusy] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
   const [commentBusy, setCommentBusy] = useState(false);
+  const [discussionBusy, setDiscussionBusy] = useState(false);
   const [mediaBusy, setMediaBusy] = useState(false);
+  const [commentActionBusyId, setCommentActionBusyId] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
   const [assignForm, setAssignForm] = useState({
     organizationId: '',
     priority: '',
   });
   const [statusValue, setStatusValue] = useState<'accepted' | 'in_progress' | 'resolved'>('accepted');
   const [commentText, setCommentText] = useState('');
+  const [discussionText, setDiscussionText] = useState('');
+  const [requestPhotoIndex, setRequestPhotoIndex] = useState(0);
+  const [organizationPhotoIndex, setOrganizationPhotoIndex] = useState(0);
+  const [photoViewer, setPhotoViewer] = useState<{ src: string; alt: string } | null>(null);
   const [draftForm, setDraftForm] = useState<{
     objective: 'acknowledge' | 'status_update' | 'request_more_info' | 'resolution';
     tone: 'formal' | 'empathetic' | 'concise';
@@ -260,6 +297,119 @@ export const RequestDetailPage = () => {
     }
   };
 
+  const canManageComment = (comment: Comment) => {
+    if (!user) {
+      return false;
+    }
+
+    if (user.role === 'user') {
+      return comment.authorUserId === user.id;
+    }
+
+    if (user.role === 'organization') {
+      return Boolean(comment.authorOrganizationId) && comment.authorOrganizationId === user.organizationId;
+    }
+
+    return false;
+  };
+
+  const submitDiscussionComment = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!id || !user || (user.role !== 'user' && user.role !== 'organization')) {
+      return;
+    }
+
+    const nextText = discussionText.trim();
+    if (!nextText) {
+      return;
+    }
+
+    setDiscussionBusy(true);
+
+    try {
+      await api.requests.addComment(id, nextText);
+      setDiscussionText('');
+      await refreshRequest();
+      pushToast({
+        tone: 'success',
+        title: t('requestDetail.commentSuccessTitle'),
+        description: t('requestDetail.commentSuccessDescription'),
+      });
+    } catch (error) {
+      pushToast({
+        tone: 'error',
+        title: t('requestDetail.commentFailed'),
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setDiscussionBusy(false);
+    }
+  };
+
+  const startCommentEdit = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditingCommentText(comment.text);
+  };
+
+  const cancelCommentEdit = () => {
+    setEditingCommentId(null);
+    setEditingCommentText('');
+  };
+
+  const saveCommentEdit = async (commentId: string) => {
+    if (!id) {
+      return;
+    }
+
+    const nextText = editingCommentText.trim();
+    if (!nextText) {
+      return;
+    }
+
+    setCommentActionBusyId(commentId);
+
+    try {
+      await api.requests.updateComment(id, commentId, nextText);
+      await refreshRequest();
+      setEditingCommentId(null);
+      setEditingCommentText('');
+    } catch (error) {
+      pushToast({
+        tone: 'error',
+        title: t('requestDetail.commentFailed'),
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setCommentActionBusyId(null);
+    }
+  };
+
+  const deleteOwnComment = async (commentId: string) => {
+    if (!id) {
+      return;
+    }
+
+    setCommentActionBusyId(commentId);
+
+    try {
+      await api.requests.removeComment(id, commentId);
+      await refreshRequest();
+
+      if (editingCommentId === commentId) {
+        setEditingCommentId(null);
+        setEditingCommentText('');
+      }
+    } catch (error) {
+      pushToast({
+        tone: 'error',
+        title: t('requestDetail.commentFailed'),
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setCommentActionBusyId(null);
+    }
+  };
+
   const deleteRequest = async () => {
     if (!id || !window.confirm(t('requestDetail.deleteConfirm'))) {
       return;
@@ -290,8 +440,20 @@ export const RequestDetailPage = () => {
   }
 
   const imageMedia = (request.media ?? []).filter((item) => item.type === 'image');
-  const requestPhotos = imageMedia.filter((item) => !item.uploadedByOrganizationId);
-  const organizationPhotos = imageMedia.filter((item) => Boolean(item.uploadedByOrganizationId));
+  const requestPhotos = imageMedia
+    .filter((item) => !item.uploadedByOrganizationId)
+    .slice(0, REQUEST_DETAIL_PHOTO_LIMIT);
+  const organizationPhotos = imageMedia
+    .filter((item) => Boolean(item.uploadedByOrganizationId))
+    .slice(0, REQUEST_DETAIL_PHOTO_LIMIT);
+  const requestPhotoCurrentIndex = requestPhotos.length ? requestPhotoIndex % requestPhotos.length : 0;
+  const organizationPhotoCurrentIndex = organizationPhotos.length ? organizationPhotoIndex % organizationPhotos.length : 0;
+  const requestPhoto = requestPhotos.length ? requestPhotos[requestPhotoCurrentIndex] : null;
+  const organizationPhoto = organizationPhotos.length ? organizationPhotos[organizationPhotoCurrentIndex] : null;
+  const mapLatitude = parseCoordinate(request.latitude) ?? parseCoordinate(request.city?.latitude) ?? REQUEST_DETAIL_FALLBACK_CENTER[0];
+  const mapLongitude = parseCoordinate(request.longitude) ?? parseCoordinate(request.city?.longitude) ?? REQUEST_DETAIL_FALLBACK_CENTER[1];
+  const mapCenter: [number, number] = [mapLatitude, mapLongitude];
+  const mapZoom = request.latitude && request.longitude ? 15 : 12;
   const hasSidePanel = user?.role === 'admin' || user?.role === 'organization';
   const mainInfoTitle = '\u0411\u0430\u0441\u0442\u044b \u0430\u049b\u043f\u0430\u0440\u0430\u0442';
   const photosTitle = '\u04e8\u0442\u0456\u043d\u0456\u0448 \u0444\u043e\u0442\u043e\u043b\u0430\u0440\u044b';
@@ -302,6 +464,9 @@ export const RequestDetailPage = () => {
   const organizationPhotosEmpty = '\u04b0\u0439\u044b\u043c \u0444\u043e\u0442\u043e \u0436\u04af\u043a\u0442\u0435\u043c\u0435\u0433\u0435\u043d.';
   const organizationPhotoAlt = '\u04b0\u0439\u044b\u043c \u0444\u043e\u0442\u043e\u0441\u044b';
   const backToRequestsText = '\u049a\u0430\u0439\u0442\u0443';
+  const requestPhotoAlt = '\u04e8\u0442\u0456\u043d\u0456\u0448 \u0444\u043e\u0442\u043e\u0441\u044b';
+  const canUseDiscussionComposer = user?.role === 'user' || user?.role === 'organization';
+  const currentUserInitial = (user?.fullName?.trim().charAt(0) || 'U').toUpperCase();
 
   return (
     <div className="page request-detail-minimal">
@@ -361,36 +526,139 @@ export const RequestDetailPage = () => {
               <h3>{photosTitle}</h3>
             </div>
             <div className="request-detail-media-split">
-              <section className="request-detail-media-group">
-                <h4>{requestPhotosLabel}</h4>
-                {requestPhotos.length ? (
-                  <div className="request-detail-media-grid">
-                    {requestPhotos.map((item) => (
-                      <article key={item.id} className="request-detail-media-item">
-                        <img src={resolveFileUrl(item.fileUrl)} alt={request.title} />
-                        <div className="request-detail-media-meta">{formatDateTime(item.createdAt)}</div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="request-detail-media-empty">{requestPhotosEmpty}</p>
-                )}
-              </section>
+              <div className="request-detail-media-column">
+                <section className="request-detail-media-group">
+                  <h4>{requestPhotosLabel}</h4>
+                  {requestPhoto ? (
+                    <article className="request-detail-media-viewer">
+                      <div className="request-detail-media-image-wrap">
+                        <img src={resolveFileUrl(requestPhoto.fileUrl)} alt={request.title || requestPhotoAlt} />
+                        <button
+                          type="button"
+                          className="request-detail-media-expand"
+                          onClick={() => setPhotoViewer({ src: resolveFileUrl(requestPhoto.fileUrl), alt: request.title || requestPhotoAlt })}
+                          aria-label="Open full photo"
+                        >
+                          <Maximize2 size={15} />
+                        </button>
+                      </div>
+                      <div className="request-detail-media-toolbar">
+                        <button
+                          type="button"
+                          className="request-detail-media-nav"
+                          onClick={() =>
+                            setRequestPhotoIndex((current) => (current - 1 + requestPhotos.length) % requestPhotos.length)
+                          }
+                          disabled={requestPhotos.length < 2}
+                          aria-label="Previous request photo"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <div className="request-detail-media-meta">
+                          {formatDateTime(requestPhoto.createdAt)} · {requestPhotoCurrentIndex + 1}/{requestPhotos.length}
+                        </div>
+                        <button
+                          type="button"
+                          className="request-detail-media-nav"
+                          onClick={() => setRequestPhotoIndex((current) => (current + 1) % requestPhotos.length)}
+                          disabled={requestPhotos.length < 2}
+                          aria-label="Next request photo"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+                    </article>
+                  ) : (
+                    <p className="request-detail-media-empty">{requestPhotosEmpty}</p>
+                  )}
+                </section>
 
-              <section className="request-detail-media-group">
-                <h4>{organizationPhotosLabel}</h4>
-                {organizationPhotos.length ? (
-                  <div className="request-detail-media-grid">
-                    {organizationPhotos.map((item) => (
-                      <article key={item.id} className="request-detail-media-item">
-                        <img src={resolveFileUrl(item.fileUrl)} alt={request.organization?.name ?? organizationPhotoAlt} />
-                        <div className="request-detail-media-meta">{formatDateTime(item.createdAt)}</div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="request-detail-media-empty">{organizationPhotosEmpty}</p>
-                )}
+                <section className="request-detail-media-group">
+                  <h4>{organizationPhotosLabel}</h4>
+                  {organizationPhoto ? (
+                    <article className="request-detail-media-viewer">
+                      <div className="request-detail-media-image-wrap">
+                        <img src={resolveFileUrl(organizationPhoto.fileUrl)} alt={request.organization?.name ?? organizationPhotoAlt} />
+                        <button
+                          type="button"
+                          className="request-detail-media-expand"
+                          onClick={() =>
+                            setPhotoViewer({
+                              src: resolveFileUrl(organizationPhoto.fileUrl),
+                              alt: request.organization?.name ?? organizationPhotoAlt,
+                            })
+                          }
+                          aria-label="Open full photo"
+                        >
+                          <Maximize2 size={15} />
+                        </button>
+                      </div>
+                      <div className="request-detail-media-toolbar">
+                        <button
+                          type="button"
+                          className="request-detail-media-nav"
+                          onClick={() =>
+                            setOrganizationPhotoIndex(
+                              (current) => (current - 1 + organizationPhotos.length) % organizationPhotos.length,
+                            )
+                          }
+                          disabled={organizationPhotos.length < 2}
+                          aria-label="Previous organization photo"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <div className="request-detail-media-meta">
+                          {formatDateTime(organizationPhoto.createdAt)} · {organizationPhotoCurrentIndex + 1}/{organizationPhotos.length}
+                        </div>
+                        <button
+                          type="button"
+                          className="request-detail-media-nav"
+                          onClick={() =>
+                            setOrganizationPhotoIndex((current) => (current + 1) % organizationPhotos.length)
+                          }
+                          disabled={organizationPhotos.length < 2}
+                          aria-label="Next organization photo"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+                    </article>
+                  ) : (
+                    <p className="request-detail-media-empty">{organizationPhotosEmpty}</p>
+                  )}
+                </section>
+              </div>
+
+              <section className="request-detail-map-panel">
+                <h4>{t('common.location')}</h4>
+                <div className="request-detail-map-frame">
+                  <MapContainer
+                    center={mapCenter}
+                    zoom={mapZoom}
+                    className="request-detail-map-leaflet"
+                    dragging={false}
+                    scrollWheelZoom={false}
+                    doubleClickZoom={false}
+                    touchZoom={false}
+                    boxZoom={false}
+                    keyboard={false}
+                    zoomControl={false}
+                    attributionControl={false}
+                  >
+                    <RequestDetailMapSizer />
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <CircleMarker
+                      center={mapCenter}
+                      radius={8}
+                      pathOptions={{
+                        color: '#0b0f18',
+                        weight: 3,
+                        fillColor: '#ef4444',
+                        fillOpacity: 0.95,
+                      }}
+                    />
+                  </MapContainer>
+                </div>
               </section>
             </div>
           </article>
@@ -400,21 +668,137 @@ export const RequestDetailPage = () => {
               <span className="section-title__eyebrow">{t('requestDetail.discussionEyebrow')}</span>
               <h3>{commentsTitle}</h3>
             </div>
-            {request.comments?.length ? (
-              <div className="comment-thread">
-                {request.comments.map((comment) => (
-                  <article key={comment.id} className="comment-card">
-                    <div className="comment-card__meta">
-                      <strong>{comment.authorOrganization?.name ?? comment.authorUser?.fullName ?? t('requestDetail.authorFallback')}</strong>
-                      <span>{formatDateTime(comment.createdAt)}</span>
-                    </div>
-                    <p className="muted-text">{comment.text}</p>
-                  </article>
-                ))}
+            <div className="request-detail-discussion">
+              <div className="request-detail-discussion__list">
+                {request.comments?.length ? (
+                  request.comments.map((comment) => {
+                    const authorName =
+                      comment.authorOrganization?.name ??
+                      comment.authorUser?.fullName ??
+                      (comment.authorUserId === user?.id ? user?.fullName : null) ??
+                      t('requestDetail.authorFallback');
+                    const authorAvatar =
+                      comment.authorUser?.avatarUrl ??
+                      (comment.authorUserId === user?.id ? user?.avatarUrl ?? null : null) ??
+                      comment.authorOrganization?.logoUrl ??
+                      null;
+                    const authorInitial = authorName.trim().charAt(0).toUpperCase() || '?';
+                    const isOwnComment = canManageComment(comment);
+                    const isEditing = editingCommentId === comment.id;
+                    const isActionBusy = commentActionBusyId === comment.id;
+
+                    return (
+                      <article key={comment.id} className="request-detail-comment-item">
+                        <span className="request-detail-comment-avatar" aria-hidden="true">
+                          {authorAvatar ? (
+                            <img src={resolveFileUrl(authorAvatar)} alt={authorName} className="request-detail-comment-avatar-image" />
+                          ) : (
+                            authorInitial
+                          )}
+                        </span>
+                        <div className="request-detail-comment-body">
+                          <div className="request-detail-comment-meta">
+                            <strong>{authorName}</strong>
+                            <span>{formatDateTime(comment.createdAt)}</span>
+                          </div>
+
+                          {isEditing ? (
+                            <div className="request-detail-comment-editor">
+                              <textarea
+                                className="request-detail-comment-input request-detail-comment-input--inline"
+                                value={editingCommentText}
+                                onChange={(event) => setEditingCommentText(event.target.value)}
+                                rows={2}
+                              />
+                              <div className="request-detail-comment-actions">
+                                <button
+                                  type="button"
+                                  className="request-detail-comment-action"
+                                  onClick={cancelCommentEdit}
+                                  disabled={isActionBusy}
+                                >
+                                  {t('common.close')}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="request-detail-comment-submit"
+                                  onClick={() => void saveCommentEdit(comment.id)}
+                                  disabled={isActionBusy || !editingCommentText.trim()}
+                                >
+                                  {t('common.save')}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p>{comment.text}</p>
+                              {isOwnComment ? (
+                                <div className="request-detail-comment-actions">
+                                  <button
+                                    type="button"
+                                    className="request-detail-comment-action request-detail-comment-action--icon"
+                                    onClick={() => startCommentEdit(comment)}
+                                    disabled={isActionBusy}
+                                    aria-label={t('common.edit')}
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="request-detail-comment-delete request-detail-comment-action--icon"
+                                    onClick={() => void deleteOwnComment(comment.id)}
+                                    disabled={isActionBusy}
+                                    aria-label={t('common.delete')}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              ) : null}
+                            </>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <p className="request-detail-comments-empty">{t('requestDetail.commentsEmptyDescription')}</p>
+                )}
               </div>
-            ) : (
-              <p className="request-detail-comments-empty">{t('requestDetail.commentsEmptyDescription')}</p>
-            )}
+
+              {canUseDiscussionComposer ? (
+                <form className="request-detail-comment-form" onSubmit={submitDiscussionComment}>
+                  <span className="request-detail-comment-avatar" aria-hidden="true">
+                    {user?.avatarUrl ? (
+                      <img src={resolveFileUrl(user.avatarUrl)} alt={user.fullName} className="request-detail-comment-avatar-image" />
+                    ) : (
+                      currentUserInitial
+                    )}
+                  </span>
+                  <div className="request-detail-comment-editor">
+                    <textarea
+                      className="request-detail-comment-input"
+                      value={discussionText}
+                      onChange={(event) => setDiscussionText(event.target.value)}
+                      placeholder={t('requestDetail.comment')}
+                      rows={2}
+                    />
+                    <div className="request-detail-comment-actions">
+                      <button
+                        type="button"
+                        className="request-detail-comment-action"
+                        onClick={() => setDiscussionText('')}
+                        disabled={discussionBusy || !discussionText.trim()}
+                      >
+                        {t('common.close')}
+                      </button>
+                      <button type="submit" className="request-detail-comment-submit" disabled={discussionBusy || !discussionText.trim()}>
+                        {t('requestDetail.publishComment')}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              ) : null}
+            </div>
           </article>
         </div>
 
@@ -580,6 +964,17 @@ export const RequestDetailPage = () => {
           ) : null}
         </div> : null}
       </section>
+
+      {photoViewer ? (
+        <div className="request-detail-photo-modal-shell" role="dialog" aria-modal="true" onClick={() => setPhotoViewer(null)}>
+          <div className="request-detail-photo-modal" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="request-detail-photo-modal__close" onClick={() => setPhotoViewer(null)} aria-label={t('common.close')}>
+              <X size={16} />
+            </button>
+            <img src={photoViewer.src} alt={photoViewer.alt} />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

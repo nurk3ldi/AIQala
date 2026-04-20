@@ -383,6 +383,24 @@ export const api = {
         query,
       }),
     detail: (id: string) => request<IssueRequest>(`/requests/${id}`),
+    update: (
+      id: string,
+      payload: {
+        title?: string;
+        description?: string;
+        categoryId?: string;
+        cityId?: string;
+        districtId?: string;
+        organizationId?: string;
+        latitude?: string;
+        longitude?: string;
+        priority?: RequestPriority;
+      },
+    ) =>
+      request<IssueRequest>(`/requests/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }),
     assign: (id: string, payload: { organizationId: string; priority?: RequestPriority }) =>
       request<IssueRequest>(`/requests/${id}/assign`, {
         method: 'PATCH',
@@ -397,6 +415,15 @@ export const api = {
       request<Comment>(`/requests/${id}/comment`, {
         method: 'POST',
         body: JSON.stringify({ text }),
+      }),
+    updateComment: (id: string, commentId: string, text: string) =>
+      request<Comment>(`/requests/${id}/comments/${commentId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ text }),
+      }),
+    removeComment: (id: string, commentId: string) =>
+      request<void>(`/requests/${id}/comments/${commentId}`, {
+        method: 'DELETE',
       }),
     addMedia: (id: string, file: File) => {
       const formData = new FormData();

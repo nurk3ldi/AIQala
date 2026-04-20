@@ -25,11 +25,12 @@ import { CommentsService } from '../comments/comments.service';
 import { MediaService } from '../media/media.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
-import { AssignRequestDto, CreateCommentDto, CreateRequestDto, RequestListQueryDto, UpdateRequestStatusDto } from './dto/request.dto';
+import { AssignRequestDto, CreateCommentDto, CreateRequestDto, RequestListQueryDto, UpdateCommentDto, UpdateRequestDto, UpdateRequestStatusDto } from './dto/request.dto';
 import { RequestsRepository } from './requests.repository';
 
 export class RequestsService {
-  private static readonly MAX_USER_REQUEST_MEDIA = 5;
+  private static readonly MAX_USER_REQUEST_MEDIA = 3;
+  private static readonly MAX_ORGANIZATION_REQUEST_MEDIA = 3;
 
   constructor(
     private readonly requestsRepository: RequestsRepository,
@@ -211,11 +212,78 @@ export class RequestsService {
     return this.requestsRepository.findById(id);
   }
 
+  async updateRequest(currentUser: AuthenticatedUser, id: string, payload: UpdateRequestDto) {
+    const request = await this.requestsRepository.findByIdPlain(id);
+
+    if (!request) {
+      throw new AppError(404, 'REQUEST_NOT_FOUND', 'Request not found');
+    }
+
+    if (currentUser.role === UserRole.USER && request.userId !== currentUser.id) {
+      throw new AppError(403, 'FORBIDDEN', 'You do not have access to this request');
+    }
+
+    if (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.USER) {
+      throw new AppError(403, 'FORBIDDEN', 'This role cannot update requests');
+    }
+
+    const nextCityId = payload.cityId ?? request.cityId;
+    const nextDistrictId = payload.districtId ?? request.districtId;
+    const nextCategoryId = payload.categoryId ?? request.categoryId;
+    const nextOrganizationId = payload.organizationId ?? request.organizationId;
+
+    if (payload.categoryId) {
+      await this.ensureCategoryExists(payload.categoryId);
+    }
+
+    if (payload.cityId || payload.districtId !== undefined) {
+      await this.ensureLocationIntegrity(nextCityId, nextDistrictId);
+    }
+
+    if (payload.organizationId !== undefined || payload.categoryId || payload.cityId) {
+      await this.ensureRequestedOrganizationIntegrity(
+        nextOrganizationId ?? undefined,
+        nextCategoryId,
+        nextCityId,
+      );
+    }
+
+    await request.update({
+      title: payload.title?.trim() ?? request.title,
+      description: payload.description?.trim() ?? request.description,
+      categoryId: nextCategoryId,
+      cityId: nextCityId,
+      districtId: nextDistrictId,
+      organizationId: nextOrganizationId,
+      latitude: payload.latitude ?? request.latitude,
+      longitude: payload.longitude ?? request.longitude,
+      priority: (payload.priority as RequestPriority | undefined) ?? request.priority,
+    });
+
+    return this.requestsRepository.findById(id);
+  }
+
   async addComment(currentUser: AuthenticatedUser, id: string, payload: CreateCommentDto) {
     const request = await this.requestsRepository.findByIdPlain(id);
 
     if (!request) {
       throw new AppError(404, 'REQUEST_NOT_FOUND', 'Request not found');
+    }
+
+    if (currentUser.role === UserRole.USER) {
+      if (request.userId !== currentUser.id) {
+        throw new AppError(403, 'FORBIDDEN', 'You do not have access to this request');
+      }
+
+      return this.commentsService.createUserComment(
+        id,
+        currentUser.id,
+        payload.text.trim(),
+      );
+    }
+
+    if (currentUser.role !== UserRole.ORGANIZATION) {
+      throw new AppError(403, 'FORBIDDEN', 'This role cannot add comments to requests');
     }
 
     this.assertOrganizationOwnership(currentUser, request);
@@ -242,6 +310,95 @@ export class RequestsService {
     return comment;
   }
 
+  async updateComment(currentUser: AuthenticatedUser, id: string, commentId: string, payload: UpdateCommentDto) {
+    const request = await this.requestsRepository.findByIdPlain(id);
+
+    if (!request) {
+      throw new AppError(404, 'REQUEST_NOT_FOUND', 'Request not found');
+    }
+
+    const comment = await this.commentsService.findById(commentId);
+
+    if (!comment || comment.requestId !== id) {
+      throw new AppError(404, 'COMMENT_NOT_FOUND', 'Comment not found');
+    }
+
+    if (currentUser.role === UserRole.USER) {
+      if (request.userId !== currentUser.id || comment.authorUserId !== currentUser.id) {
+        throw new AppError(403, 'FORBIDDEN', 'You do not have access to this comment');
+      }
+
+      const updated = await this.commentsService.updateText(commentId, payload.text.trim());
+
+      if (!updated) {
+        throw new AppError(404, 'COMMENT_NOT_FOUND', 'Comment not found');
+      }
+
+      return updated;
+    }
+
+    if (currentUser.role === UserRole.ORGANIZATION) {
+      this.assertOrganizationOwnership(currentUser, request);
+
+      if (comment.authorOrganizationId !== currentUser.organizationId) {
+        throw new AppError(403, 'FORBIDDEN', 'You do not have access to this comment');
+      }
+
+      const moderation = await this.tryModerateOrganizationComment(payload.text);
+
+      if (moderation && !moderation.isAllowed) {
+        throw new AppError(400, 'COMMENT_REJECTED_BY_AI', 'Comment content was rejected by automated moderation', moderation);
+      }
+
+      const updated = await this.commentsService.updateText(
+        commentId,
+        (moderation?.sanitizedText ?? payload.text).trim(),
+      );
+
+      if (!updated) {
+        throw new AppError(404, 'COMMENT_NOT_FOUND', 'Comment not found');
+      }
+
+      return updated;
+    }
+
+    throw new AppError(403, 'FORBIDDEN', 'This role cannot update comments');
+  }
+
+  async deleteComment(currentUser: AuthenticatedUser, id: string, commentId: string) {
+    const request = await this.requestsRepository.findByIdPlain(id);
+
+    if (!request) {
+      throw new AppError(404, 'REQUEST_NOT_FOUND', 'Request not found');
+    }
+
+    const comment = await this.commentsService.findById(commentId);
+
+    if (!comment || comment.requestId !== id) {
+      throw new AppError(404, 'COMMENT_NOT_FOUND', 'Comment not found');
+    }
+
+    if (currentUser.role === UserRole.USER) {
+      if (request.userId !== currentUser.id || comment.authorUserId !== currentUser.id) {
+        throw new AppError(403, 'FORBIDDEN', 'You do not have access to this comment');
+      }
+    } else if (currentUser.role === UserRole.ORGANIZATION) {
+      this.assertOrganizationOwnership(currentUser, request);
+
+      if (comment.authorOrganizationId !== currentUser.organizationId) {
+        throw new AppError(403, 'FORBIDDEN', 'You do not have access to this comment');
+      }
+    } else {
+      throw new AppError(403, 'FORBIDDEN', 'This role cannot delete comments');
+    }
+
+    const deleted = await this.commentsService.removeById(commentId);
+
+    if (!deleted) {
+      throw new AppError(404, 'COMMENT_NOT_FOUND', 'Comment not found');
+    }
+  }
+
   async addMedia(currentUser: AuthenticatedUser, id: string, file: Express.Multer.File | undefined) {
     if (!file) {
       throw new AppError(400, 'FILE_REQUIRED', 'Media file is required');
@@ -255,6 +412,19 @@ export class RequestsService {
 
     if (currentUser.role === UserRole.ORGANIZATION) {
       this.assertOrganizationOwnership(currentUser, request);
+
+      const existingOrganizationMediaCount = await this.mediaService.countOrganizationMediaByRequest(
+        id,
+        currentUser.organizationId!,
+      );
+
+      if (existingOrganizationMediaCount >= RequestsService.MAX_ORGANIZATION_REQUEST_MEDIA) {
+        throw new AppError(
+          400,
+          'REQUEST_MEDIA_LIMIT',
+          `Only ${RequestsService.MAX_ORGANIZATION_REQUEST_MEDIA} photos can be attached to one request`,
+        );
+      }
 
       const { fileUrl, mediaType } = await this.persistUploadedMedia(file);
 
@@ -294,14 +464,28 @@ export class RequestsService {
     throw new AppError(403, 'FORBIDDEN', 'This role cannot upload media to requests');
   }
 
-  async deleteRequest(id: string) {
+  async deleteRequest(currentUser: AuthenticatedUser, id: string) {
     const request = await this.requestsRepository.findByIdPlain(id);
 
     if (!request) {
       throw new AppError(404, 'REQUEST_NOT_FOUND', 'Request not found');
     }
 
-    await request.destroy();
+    if (currentUser.role === UserRole.ADMIN) {
+      await request.destroy();
+      return;
+    }
+
+    if (currentUser.role === UserRole.USER) {
+      if (request.userId !== currentUser.id) {
+        throw new AppError(403, 'FORBIDDEN', 'You do not have access to this request');
+      }
+
+      await request.destroy();
+      return;
+    }
+
+    throw new AppError(403, 'FORBIDDEN', 'This role cannot delete requests');
   }
 
   private buildWhereClause(query: RequestListQueryDto): Record<string, unknown> {

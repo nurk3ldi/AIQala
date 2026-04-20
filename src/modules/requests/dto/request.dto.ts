@@ -73,8 +73,62 @@ export class UpdateRequestStatusDto {
   status!: string;
 }
 
+export class UpdateRequestDto {
+  @IsOptional()
+  @IsString()
+  @Length(4, 200)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(10, 4000)
+  description?: string;
+
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  cityId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  districtId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  organizationId?: string;
+
+  @IsOptional()
+  @Matches(/^-?\d+(\.\d+)?$/)
+  latitude?: string;
+
+  @IsOptional()
+  @Matches(/^-?\d+(\.\d+)?$/)
+  longitude?: string;
+
+  @IsOptional()
+  @IsIn(REQUEST_PRIORITIES)
+  priority?: string;
+}
+
 export class CreateCommentDto {
   @IsString()
   @Length(1, 2000)
   text!: string;
+}
+
+export class UpdateCommentDto {
+  @IsString()
+  @Length(1, 2000)
+  text!: string;
+}
+
+export class RequestCommentParamDto {
+  @IsUUID()
+  id!: string;
+
+  @IsUUID()
+  commentId!: string;
 }

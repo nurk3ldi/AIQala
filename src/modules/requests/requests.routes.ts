@@ -17,7 +17,7 @@ import { MediaService } from '../media/media.service';
 import { NotificationsRepository } from '../notifications/notifications.repository';
 import { NotificationsService } from '../notifications/notifications.service';
 
-import { AssignRequestDto, CreateCommentDto, CreateRequestDto, RequestListQueryDto, UpdateRequestStatusDto } from './dto/request.dto';
+import { AssignRequestDto, CreateCommentDto, CreateRequestDto, RequestCommentParamDto, RequestListQueryDto, UpdateCommentDto, UpdateRequestDto, UpdateRequestStatusDto } from './dto/request.dto';
 import { RequestsController } from './requests.controller';
 import { RequestsRepository } from './requests.repository';
 import { RequestsService } from './requests.service';
@@ -68,6 +68,13 @@ router.patch(
   asyncHandler(requestsController.assign),
 );
 router.patch(
+  '/:id',
+  authenticate,
+  authorize(UserRole.ADMIN, UserRole.USER),
+  validateRequest({ params: IdParamDto, body: UpdateRequestDto }),
+  asyncHandler(requestsController.update),
+);
+router.patch(
   '/:id/status',
   authenticate,
   authorize(UserRole.ORGANIZATION),
@@ -77,9 +84,23 @@ router.patch(
 router.post(
   '/:id/comment',
   authenticate,
-  authorize(UserRole.ORGANIZATION),
+  authorize(UserRole.ORGANIZATION, UserRole.USER),
   validateRequest({ params: IdParamDto, body: CreateCommentDto }),
   asyncHandler(requestsController.addComment),
+);
+router.patch(
+  '/:id/comments/:commentId',
+  authenticate,
+  authorize(UserRole.ORGANIZATION, UserRole.USER),
+  validateRequest({ params: RequestCommentParamDto, body: UpdateCommentDto }),
+  asyncHandler(requestsController.updateComment),
+);
+router.delete(
+  '/:id/comments/:commentId',
+  authenticate,
+  authorize(UserRole.ORGANIZATION, UserRole.USER),
+  validateRequest({ params: RequestCommentParamDto }),
+  asyncHandler(requestsController.deleteComment),
 );
 router.post(
   '/:id/media',
@@ -92,7 +113,7 @@ router.post(
 router.delete(
   '/:id',
   authenticate,
-  authorize(UserRole.ADMIN),
+  authorize(UserRole.ADMIN, UserRole.USER),
   validateRequest({ params: IdParamDto }),
   asyncHandler(requestsController.delete),
 );
