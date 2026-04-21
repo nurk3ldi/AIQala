@@ -271,10 +271,6 @@ export class RequestsService {
     }
 
     if (currentUser.role === UserRole.USER) {
-      if (request.userId !== currentUser.id) {
-        throw new AppError(403, 'FORBIDDEN', 'You do not have access to this request');
-      }
-
       return this.commentsService.createUserComment(
         id,
         currentUser.id,
@@ -324,7 +320,7 @@ export class RequestsService {
     }
 
     if (currentUser.role === UserRole.USER) {
-      if (request.userId !== currentUser.id || comment.authorUserId !== currentUser.id) {
+      if (comment.authorUserId !== currentUser.id) {
         throw new AppError(403, 'FORBIDDEN', 'You do not have access to this comment');
       }
 
@@ -379,7 +375,7 @@ export class RequestsService {
     }
 
     if (currentUser.role === UserRole.USER) {
-      if (request.userId !== currentUser.id || comment.authorUserId !== currentUser.id) {
+      if (comment.authorUserId !== currentUser.id) {
         throw new AppError(403, 'FORBIDDEN', 'You do not have access to this comment');
       }
     } else if (currentUser.role === UserRole.ORGANIZATION) {
@@ -534,9 +530,11 @@ export class RequestsService {
       return;
     }
 
-    if (request.userId !== currentUser.id) {
-      throw new AppError(403, 'FORBIDDEN', 'You do not have access to this request');
+    if (currentUser.role === UserRole.USER) {
+      return;
     }
+
+    throw new AppError(403, 'FORBIDDEN', 'You do not have access to this request');
   }
 
   private assertOrganizationOwnership(currentUser: AuthenticatedUser, request: IssueRequestModel): void {

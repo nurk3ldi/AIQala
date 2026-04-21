@@ -11,6 +11,8 @@ import {
   Images,
   MapPinned,
   MessageCircle,
+  Pencil,
+  Trash2,
   UserRound,
   X,
 } from 'lucide-react';
@@ -163,14 +165,27 @@ const loadIssuesForRole = async (role: UserRole, selectedCityId: string | null) 
   const baseQuery = selectedCityId ? { cityId: selectedCityId } : {};
 
   if (role === 'user') {
-    return fetchAllPages((query) => api.requests.listMine({ ...query, ...baseQuery }));
+    try {
+      return await fetchAllPages((query) => api.requests.list({ ...query, ...baseQuery }));
+    } catch {
+      return fetchAllPages((query) => api.requests.listMine({ ...query, ...baseQuery }));
+    }
   }
 
   return fetchAllPages((query) => api.requests.list({ ...query, ...baseQuery }));
 };
 
-const loadIssueDetailForRole = (role: UserRole, id: string) =>
-  role === 'user' ? api.requests.getMineById(id) : api.requests.detail(id);
+const loadIssueDetailForRole = async (role: UserRole, id: string) => {
+  if (role === 'user') {
+    try {
+      return await api.requests.detail(id);
+    } catch {
+      return api.requests.getMineById(id);
+    }
+  }
+
+  return api.requests.detail(id);
+};
 
 const MapViewportSync = ({ issues, activeIssue }: { issues: MapIssue[]; activeIssue: MapIssue | null }) => {
   const map = useMap();
@@ -749,7 +764,31 @@ export const HomeMapDonutPage = () => {
                                   <div className="home-minimal__detail-comment-body">
                                     <div className="home-minimal__detail-comment-meta">
                                       <strong>{authorName}</strong>
-                                      <span>{formatDateTime(comment.createdAt)}</span>
+                                      <div className="home-minimal__detail-comment-meta-right">
+                                        <span>{formatDateTime(comment.createdAt)}</span>
+                                        {isOwnComment && !isEditing ? (
+                                          <div className="home-minimal__detail-comment-meta-actions">
+                                            <button
+                                              type="button"
+                                              className="home-minimal__detail-comment-icon"
+                                              onClick={() => startCommentEdit(comment.id, comment.text)}
+                                              disabled={isActionBusy}
+                                              aria-label={t('common.edit')}
+                                            >
+                                              <Pencil size={12} />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="home-minimal__detail-comment-icon home-minimal__detail-comment-icon--danger"
+                                              onClick={() => void deleteOwnComment(comment.id)}
+                                              disabled={isActionBusy}
+                                              aria-label={t('common.delete')}
+                                            >
+                                              <Trash2 size={12} />
+                                            </button>
+                                          </div>
+                                        ) : null}
+                                      </div>
                                     </div>
                                     {isEditing ? (
                                       <div className="home-minimal__detail-comment-editor">
@@ -781,26 +820,6 @@ export const HomeMapDonutPage = () => {
                                     ) : (
                                       <>
                                         <p>{comment.text}</p>
-                                        {isOwnComment ? (
-                                          <div className="home-minimal__detail-comment-actions">
-                                            <button
-                                              type="button"
-                                              className="home-minimal__comment-cancel"
-                                              onClick={() => startCommentEdit(comment.id, comment.text)}
-                                              disabled={isActionBusy}
-                                            >
-                                              {t('common.edit')}
-                                            </button>
-                                            <button
-                                              type="button"
-                                              className="home-minimal__detail-comment-delete"
-                                              onClick={() => void deleteOwnComment(comment.id)}
-                                              disabled={isActionBusy}
-                                            >
-                                              {t('common.delete')}
-                                            </button>
-                                          </div>
-                                        ) : null}
                                       </>
                                     )}
                                   </div>

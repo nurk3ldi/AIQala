@@ -455,16 +455,15 @@ export const RequestDetailPage = () => {
   const mapCenter: [number, number] = [mapLatitude, mapLongitude];
   const mapZoom = request.latitude && request.longitude ? 15 : 12;
   const hasSidePanel = user?.role === 'admin' || user?.role === 'organization';
-  const mainInfoTitle = '\u0411\u0430\u0441\u0442\u044b \u0430\u049b\u043f\u0430\u0440\u0430\u0442';
-  const photosTitle = '\u04e8\u0442\u0456\u043d\u0456\u0448 \u0444\u043e\u0442\u043e\u043b\u0430\u0440\u044b';
-  const commentsTitle = '\u041f\u0456\u043a\u0456\u0440\u043b\u0435\u0440';
-  const requestPhotosLabel = '\u04e8\u0442\u0456\u043d\u0456\u0448\u043a\u0435 \u0442\u0456\u0440\u043a\u0435\u043b\u0433\u0435\u043d \u0444\u043e\u0442\u043e';
-  const organizationPhotosLabel = '\u04b0\u0439\u044b\u043c \u0436\u04af\u043a\u0442\u0435\u0433\u0435\u043d \u0444\u043e\u0442\u043e';
-  const requestPhotosEmpty = '\u0424\u043e\u0442\u043e \u04d9\u043b\u0456 \u0442\u0456\u0440\u043a\u0435\u043b\u043c\u0435\u0433\u0435\u043d.';
-  const organizationPhotosEmpty = '\u04b0\u0439\u044b\u043c \u0444\u043e\u0442\u043e \u0436\u04af\u043a\u0442\u0435\u043c\u0435\u0433\u0435\u043d.';
-  const organizationPhotoAlt = '\u04b0\u0439\u044b\u043c \u0444\u043e\u0442\u043e\u0441\u044b';
-  const backToRequestsText = '\u049a\u0430\u0439\u0442\u0443';
-  const requestPhotoAlt = '\u04e8\u0442\u0456\u043d\u0456\u0448 \u0444\u043e\u0442\u043e\u0441\u044b';
+  const mainInfoTitle = t('requestDetail.mainInfoTitle');
+  const commentsTitle = t('requestDetail.discussionTitle');
+  const requestPhotosLabel = t('requestDetail.mediaTitle');
+  const organizationPhotosLabel = `${t('common.organization')} ${t('requestDetail.mediaTitle')}`;
+  const requestPhotosEmpty = t('requestDetail.mediaEmptyDescription');
+  const organizationPhotosEmpty = t('requestDetail.mediaEmptyDescription');
+  const organizationPhotoAlt = t('requestDetail.mediaTitle');
+  const backToRequestsText = t('requestForm.back');
+  const requestPhotoAlt = t('requestDetail.mediaTitle');
   const canUseDiscussionComposer = user?.role === 'user' || user?.role === 'organization';
   const currentUserInitial = (user?.fullName?.trim().charAt(0) || 'U').toUpperCase();
 
@@ -522,8 +521,7 @@ export const RequestDetailPage = () => {
 
           <article className="panel glass-card">
             <div className="panel__header">
-              <span className="section-title__eyebrow">Фотолар</span>
-              <h3>{photosTitle}</h3>
+              <span className="section-title__eyebrow">{t('requestDetail.mediaEyebrow')}</span>
             </div>
             <div className="request-detail-media-split">
               <div className="request-detail-media-column">
@@ -537,7 +535,7 @@ export const RequestDetailPage = () => {
                           type="button"
                           className="request-detail-media-expand"
                           onClick={() => setPhotoViewer({ src: resolveFileUrl(requestPhoto.fileUrl), alt: request.title || requestPhotoAlt })}
-                          aria-label="Open full photo"
+                          aria-label={t('common.preview')}
                         >
                           <Maximize2 size={15} />
                         </button>
@@ -550,7 +548,7 @@ export const RequestDetailPage = () => {
                             setRequestPhotoIndex((current) => (current - 1 + requestPhotos.length) % requestPhotos.length)
                           }
                           disabled={requestPhotos.length < 2}
-                          aria-label="Previous request photo"
+                          aria-label={t('pagination.previous')}
                         >
                           <ChevronLeft size={16} />
                         </button>
@@ -562,7 +560,7 @@ export const RequestDetailPage = () => {
                           className="request-detail-media-nav"
                           onClick={() => setRequestPhotoIndex((current) => (current + 1) % requestPhotos.length)}
                           disabled={requestPhotos.length < 2}
-                          aria-label="Next request photo"
+                          aria-label={t('pagination.next')}
                         >
                           <ChevronRight size={16} />
                         </button>
@@ -588,7 +586,7 @@ export const RequestDetailPage = () => {
                               alt: request.organization?.name ?? organizationPhotoAlt,
                             })
                           }
-                          aria-label="Open full photo"
+                          aria-label={t('common.preview')}
                         >
                           <Maximize2 size={15} />
                         </button>
@@ -603,7 +601,7 @@ export const RequestDetailPage = () => {
                             )
                           }
                           disabled={organizationPhotos.length < 2}
-                          aria-label="Previous organization photo"
+                          aria-label={t('pagination.previous')}
                         >
                           <ChevronLeft size={16} />
                         </button>
@@ -617,7 +615,7 @@ export const RequestDetailPage = () => {
                             setOrganizationPhotoIndex((current) => (current + 1) % organizationPhotos.length)
                           }
                           disabled={organizationPhotos.length < 2}
-                          aria-label="Next organization photo"
+                          aria-label={t('pagination.next')}
                         >
                           <ChevronRight size={16} />
                         </button>
@@ -699,7 +697,31 @@ export const RequestDetailPage = () => {
                         <div className="request-detail-comment-body">
                           <div className="request-detail-comment-meta">
                             <strong>{authorName}</strong>
-                            <span>{formatDateTime(comment.createdAt)}</span>
+                            <div className="request-detail-comment-meta-right">
+                              <span>{formatDateTime(comment.createdAt)}</span>
+                              {isOwnComment && !isEditing ? (
+                                <div className="request-detail-comment-meta-actions">
+                                  <button
+                                    type="button"
+                                    className="request-detail-comment-action request-detail-comment-action--icon request-detail-comment-action--compact"
+                                    onClick={() => startCommentEdit(comment)}
+                                    disabled={isActionBusy}
+                                    aria-label={t('common.edit')}
+                                  >
+                                    <Pencil size={12} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="request-detail-comment-delete request-detail-comment-action--icon request-detail-comment-action--compact"
+                                    onClick={() => void deleteOwnComment(comment.id)}
+                                    disabled={isActionBusy}
+                                    aria-label={t('common.delete')}
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
 
                           {isEditing ? (
@@ -732,28 +754,6 @@ export const RequestDetailPage = () => {
                           ) : (
                             <>
                               <p>{comment.text}</p>
-                              {isOwnComment ? (
-                                <div className="request-detail-comment-actions">
-                                  <button
-                                    type="button"
-                                    className="request-detail-comment-action request-detail-comment-action--icon"
-                                    onClick={() => startCommentEdit(comment)}
-                                    disabled={isActionBusy}
-                                    aria-label={t('common.edit')}
-                                  >
-                                    <Pencil size={14} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="request-detail-comment-delete request-detail-comment-action--icon"
-                                    onClick={() => void deleteOwnComment(comment.id)}
-                                    disabled={isActionBusy}
-                                    aria-label={t('common.delete')}
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              ) : null}
                             </>
                           )}
                         </div>

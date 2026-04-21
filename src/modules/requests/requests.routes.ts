@@ -49,14 +49,14 @@ router.get(
 router.get(
   '/',
   authenticate,
-  authorize(UserRole.ADMIN, UserRole.ORGANIZATION),
+  authorize(UserRole.ADMIN, UserRole.ORGANIZATION, UserRole.USER),
   validateRequest({ query: RequestListQueryDto }),
   asyncHandler(requestsController.list),
 );
 router.get(
   '/:id',
   authenticate,
-  authorize(UserRole.ADMIN, UserRole.ORGANIZATION),
+  authorize(UserRole.ADMIN, UserRole.ORGANIZATION, UserRole.USER),
   validateRequest({ params: IdParamDto }),
   asyncHandler(requestsController.getById),
 );

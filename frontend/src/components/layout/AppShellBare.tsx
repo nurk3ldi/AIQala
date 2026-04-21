@@ -44,7 +44,15 @@ export const AppShell = ({ user, onLogout: _onLogout }: AppShellProps) => {
   const { theme, toggleTheme } = useTheme();
   const { pushToast } = useToast();
   const [cities, setCities] = useState<City[]>([]);
-  const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
+  const cityStorageKey = useMemo(() => `aiqala:selected-city:${user.id}`, [user.id]);
+  const [selectedCityId, setSelectedCityId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    const saved = window.localStorage.getItem(`aiqala:selected-city:${user.id}`);
+    return saved && saved.length > 0 ? saved : null;
+  });
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const [isCityMenuOpen, setIsCityMenuOpen] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement | null>(null);
@@ -92,6 +100,38 @@ export const AppShell = ({ user, onLogout: _onLogout }: AppShellProps) => {
       active = false;
     };
   }, [pushToast, t]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const saved = window.localStorage.getItem(cityStorageKey);
+    setSelectedCityId(saved && saved.length > 0 ? saved : null);
+  }, [cityStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (selectedCityId) {
+      window.localStorage.setItem(cityStorageKey, selectedCityId);
+      return;
+    }
+
+    window.localStorage.removeItem(cityStorageKey);
+  }, [cityStorageKey, selectedCityId]);
+
+  useEffect(() => {
+    if (!selectedCityId || cities.length === 0) {
+      return;
+    }
+
+    if (!cities.some((city) => city.id === selectedCityId)) {
+      setSelectedCityId(null);
+    }
+  }, [cities, selectedCityId]);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {

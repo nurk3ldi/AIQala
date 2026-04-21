@@ -116,7 +116,11 @@ const loadIssuesForRole = async (role: UserRole, selectedCityId: string | null) 
   const baseQuery = selectedCityId ? { cityId: selectedCityId } : {};
 
   if (role === 'user') {
-    return fetchAllPages((query) => api.requests.listMine({ ...query, ...baseQuery }));
+    try {
+      return await fetchAllPages((query) => api.requests.list({ ...query, ...baseQuery }));
+    } catch {
+      return fetchAllPages((query) => api.requests.listMine({ ...query, ...baseQuery }));
+    }
   }
 
   return fetchAllPages((query) => api.requests.list({ ...query, ...baseQuery }));

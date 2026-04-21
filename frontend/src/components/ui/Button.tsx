@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes } from 'react';
+import { useTranslation } from '../../context/language-context';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -19,12 +20,16 @@ export const Button = ({
   className = '',
   disabled,
   ...props
-}: ButtonProps) => (
-  <button
-    className={`button button--${variant} button--${size} ${block ? 'button--block' : ''} ${className}`.trim()}
-    disabled={disabled || busy}
-    {...props}
-  >
-    {busy ? 'Орындалып жатыр...' : children}
-  </button>
-);
+}: ButtonProps) => {
+  const { t } = useTranslation();
+
+  return (
+    <button
+      className={`button button--${variant} button--${size} ${block ? 'button--block' : ''} ${className}`.trim()}
+      disabled={disabled || busy}
+      {...props}
+    >
+      {busy ? t('common.loading') : children}
+    </button>
+  );
+};

@@ -13,6 +13,9 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+
+import 'leaflet/dist/leaflet.css';
 
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -57,6 +60,46 @@ type RequestEditDraft = {
 };
 
 type ActiveFilterField = 'status' | 'categoryId' | 'cityId' | 'districtId' | 'organizationId';
+
+const DEFAULT_EDIT_MAP_CENTER: [number, number] = [51.1694, 71.4491];
+const EDIT_MAP_PICKER_ZOOM = 13;
+
+const parseCoordinate = (value?: string | null): number | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(String(value).replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const EditMapViewportSync = ({ latitude, longitude }: { latitude: number | null; longitude: number | null }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      map.invalidateSize();
+
+      if (latitude !== null && longitude !== null) {
+        map.setView([latitude, longitude], Math.max(map.getZoom(), EDIT_MAP_PICKER_ZOOM), { animate: false });
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [latitude, longitude, map]);
+
+  return null;
+};
+
+const EditMapCoordinateEvents = ({ onSelect }: { onSelect: (latitude: number, longitude: number) => void }) => {
+  useMapEvents({
+    click: (event) => {
+      onSelect(event.latlng.lat, event.latlng.lng);
+    },
+  });
+
+  return null;
+};
 
 const createDefaultFilters = (limit = 10): RequestFilterState => ({
   page: 1,
@@ -172,6 +215,14 @@ export const RequestsWorkspacePage = () => {
   const { language, t } = useTranslation();
   const { pushToast } = useToast();
   const copy = REQUESTS_UI[language];
+  const saveConfirmTitle =
+    language === 'kk' ? 'Сақтауды растау' : language === 'ru' ? 'Подтверждение сохранения' : 'Confirm save';
+  const saveConfirmText =
+    language === 'kk'
+      ? 'Өтінімдегі өзгерістерді сақтағыңыз келе ме?'
+      : language === 'ru'
+        ? 'Вы действительно хотите сохранить изменения в заявке?'
+        : 'Do you want to save changes to this request?';
 
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<PaginatedResult<IssueRequest> | null>(null);
@@ -185,6 +236,8 @@ export const RequestsWorkspacePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [editTarget, setEditTarget] = useState<IssueRequest | null>(null);
   const [editDraft, setEditDraft] = useState<RequestEditDraft | null>(null);
+  const [pendingEditCoordinates, setPendingEditCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
   const [editDistricts, setEditDistricts] = useState<District[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<IssueRequest | null>(null);
@@ -302,6 +355,37 @@ export const RequestsWorkspacePage = () => {
       </div>
     );
   }
+
+  const editLatitude = parseCoordinate(editDraft?.latitude);
+  const editLongitude = parseCoordinate(editDraft?.longitude);
+  const selectedEditCity = editDraft ? cities.find((city) => city.id === editDraft.cityId) ?? null : null;
+  const editCityLatitude = parseCoordinate(selectedEditCity?.latitude);
+  const editCityLongitude = parseCoordinate(selectedEditCity?.longitude);
+  const hasValidEditCoordinates =
+    editLatitude !== null &&
+    editLongitude !== null &&
+    editLatitude >= -90 &&
+    editLatitude <= 90 &&
+    editLongitude >= -180 &&
+    editLongitude <= 180;
+  const editMapCenter: [number, number] =
+    editLatitude !== null && editLongitude !== null
+      ? [editLatitude, editLongitude]
+      : editCityLatitude !== null && editCityLongitude !== null
+        ? [editCityLatitude, editCityLongitude]
+        : DEFAULT_EDIT_MAP_CENTER;
+  const mapSelectionConfirmLabel = language === 'kk' ? 'Нүктені растау' : language === 'ru' ? 'Подтвердить точку' : 'Confirm point';
+  const mapSelectionPendingText = pendingEditCoordinates
+    ? language === 'kk'
+      ? `Таңдалды: ${pendingEditCoordinates.latitude.toFixed(6)}, ${pendingEditCoordinates.longitude.toFixed(6)}`
+      : language === 'ru'
+        ? `Выбрано: ${pendingEditCoordinates.latitude.toFixed(6)}, ${pendingEditCoordinates.longitude.toFixed(6)}`
+        : `Selected: ${pendingEditCoordinates.latitude.toFixed(6)}, ${pendingEditCoordinates.longitude.toFixed(6)}`
+    : language === 'kk'
+      ? 'Алдымен картадан нүктені таңдаңыз.'
+      : language === 'ru'
+        ? 'Сначала выберите точку на карте.'
+        : 'Select a point on the map first.';
 
   const requests = result?.items ?? [];
   const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -455,6 +539,8 @@ export const RequestsWorkspacePage = () => {
       longitude: request.longitude,
       priority: request.priority,
     });
+    setPendingEditCoordinates(null);
+    setEditConfirmOpen(false);
   };
 
   const closeEditModal = () => {
@@ -462,6 +548,8 @@ export const RequestsWorkspacePage = () => {
       return;
     }
 
+    setEditConfirmOpen(false);
+    setPendingEditCoordinates(null);
     setEditTarget(null);
     setEditDraft(null);
   };
@@ -469,6 +557,54 @@ export const RequestsWorkspacePage = () => {
   const submitEdit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (!editTarget || !editDraft) {
+      return;
+    }
+
+    if (pendingEditCoordinates) {
+      pushToast({
+        tone: 'error',
+        title: t('common.location'),
+        description:
+          language === 'kk'
+            ? 'Картадан таңдаған нүктені растау батырмасымен бекітіңіз.'
+            : language === 'ru'
+              ? 'Подтвердите выбранную на карте точку кнопкой подтверждения.'
+              : 'Confirm the point selected on the map before saving.',
+      });
+      return;
+    }
+
+    if (!hasValidEditCoordinates) {
+      pushToast({
+        tone: 'error',
+        title: t('common.location'),
+        description: t('requestForm.coordsInvalid'),
+      });
+      return;
+    }
+
+    setEditConfirmOpen(true);
+  };
+
+  const confirmMapSelection = () => {
+    if (!pendingEditCoordinates) {
+      return;
+    }
+
+    setEditDraft((current) =>
+      current
+        ? {
+            ...current,
+            latitude: pendingEditCoordinates.latitude.toFixed(6),
+            longitude: pendingEditCoordinates.longitude.toFixed(6),
+          }
+        : current,
+    );
+    setPendingEditCoordinates(null);
+  };
+
+  const confirmEditSave = async () => {
     if (!editTarget || !editDraft) {
       return;
     }
@@ -491,7 +627,9 @@ export const RequestsWorkspacePage = () => {
         tone: 'success',
         title: t('common.save'),
       });
-      closeEditModal();
+      setEditConfirmOpen(false);
+      setEditTarget(null);
+      setEditDraft(null);
       setReloadKey((current) => current + 1);
     } catch (error) {
       pushToast({
@@ -840,6 +978,7 @@ export const RequestsWorkspacePage = () => {
       ) : null}
 
       {editTarget && editDraft ? (
+        <>
         <div className="profile-modal requests-edit-modal-shell" role="dialog" aria-modal="true" aria-label={t('common.edit')}>
           <button
             type="button"
@@ -941,23 +1080,80 @@ export const RequestsWorkspacePage = () => {
                 ))}
               </SelectField>
 
-              <InputField
-                label={t('common.latitude')}
-                value={editDraft.latitude}
-                onChange={(event) =>
-                  setEditDraft((current) => (current ? { ...current, latitude: event.target.value } : current))
-                }
-                required
-              />
+              <div className="requests-edit-modal__map">
+                <span className="field__label">{t('common.location')}</span>
+                <div className="request-create-map__viewport requests-edit-modal__map-viewport">
+                  <MapContainer
+                    center={editMapCenter}
+                    zoom={hasValidEditCoordinates ? EDIT_MAP_PICKER_ZOOM : 11}
+                    scrollWheelZoom
+                    className="request-create-map__leaflet"
+                    attributionControl={false}
+                  >
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <EditMapViewportSync latitude={editLatitude} longitude={editLongitude} />
+                    <EditMapCoordinateEvents
+                      onSelect={(latitude, longitude) =>
+                        setPendingEditCoordinates({
+                          latitude,
+                          longitude,
+                        })
+                      }
+                    />
+                    {hasValidEditCoordinates ? (
+                      <CircleMarker
+                        center={[editLatitude, editLongitude]}
+                        radius={7}
+                        pathOptions={{
+                          color: '#0f172a',
+                          weight: 2,
+                          fillColor: '#facc15',
+                          fillOpacity: 0.92,
+                        }}
+                      />
+                    ) : null}
+                    {pendingEditCoordinates ? (
+                      <>
+                        <CircleMarker
+                          center={[pendingEditCoordinates.latitude, pendingEditCoordinates.longitude]}
+                          radius={11}
+                          pathOptions={{
+                            color: '#ffffff',
+                            weight: 2,
+                            fillColor: 'transparent',
+                            fillOpacity: 0,
+                            dashArray: '4 4',
+                          }}
+                        />
+                        <CircleMarker
+                          center={[pendingEditCoordinates.latitude, pendingEditCoordinates.longitude]}
+                          radius={5}
+                          pathOptions={{
+                            color: '#facc15',
+                            weight: 2,
+                            fillColor: '#0f172a',
+                            fillOpacity: 0.95,
+                          }}
+                        />
+                      </>
+                    ) : null}
+                  </MapContainer>
+                </div>
+                <p className="requests-edit-modal__map-hint">
+                  {language === 'kk'
+                    ? 'Координата орнын картадан шертіп таңдаңыз.'
+                    : language === 'ru'
+                      ? 'Выберите координаты кликом по карте.'
+                      : 'Pick coordinates by clicking on the map.'}
+                </p>
+              </div>
 
-              <InputField
-                label={t('common.longitude')}
-                value={editDraft.longitude}
-                onChange={(event) =>
-                  setEditDraft((current) => (current ? { ...current, longitude: event.target.value } : current))
-                }
-                required
-              />
+              <div className="requests-edit-modal__map-actions">
+                <span className="requests-edit-modal__map-selection">{mapSelectionPendingText}</span>
+                <Button type="button" variant="secondary" onClick={confirmMapSelection} disabled={!pendingEditCoordinates}>
+                  {mapSelectionConfirmLabel}
+                </Button>
+              </div>
 
               <div className="profile-modal__actions">
                 <Button type="button" variant="ghost" onClick={closeEditModal} disabled={editBusy}>
@@ -970,6 +1166,58 @@ export const RequestsWorkspacePage = () => {
             </form>
           </article>
         </div>
+        {editConfirmOpen ? (
+          <div className="profile-modal requests-save-modal-shell" role="dialog" aria-modal="true" aria-label={saveConfirmTitle}>
+            <button
+              type="button"
+              className="profile-modal__backdrop"
+              aria-label={t('common.close')}
+              onClick={() => {
+                if (!editBusy) {
+                  setEditConfirmOpen(false);
+                }
+              }}
+            />
+            <article className="profile-modal__card glass-card requests-save-modal">
+              <div className="profile-modal__form requests-save-modal__content">
+                <button
+                  type="button"
+                  className="profile-modal__close requests-save-modal__close"
+                  onClick={() => {
+                    if (!editBusy) {
+                      setEditConfirmOpen(false);
+                    }
+                  }}
+                  aria-label={t('common.close')}
+                >
+                  <X size={18} />
+                </button>
+
+                <div className="requests-save-modal__icon-wrap" aria-hidden="true">
+                  <CircleAlert size={24} />
+                </div>
+
+                <h3 className="requests-save-modal__heading">{saveConfirmTitle}</h3>
+                <p className="requests-save-modal__text">{saveConfirmText}</p>
+
+                <div className="requests-save-modal__actions">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setEditConfirmOpen(false)}
+                    disabled={editBusy}
+                  >
+                    {copy.cancelAction}
+                  </Button>
+                  <Button type="button" onClick={confirmEditSave} busy={editBusy}>
+                    {t('common.save')}
+                  </Button>
+                </div>
+              </div>
+            </article>
+          </div>
+        ) : null}
+        </>
       ) : null}
 
       {deleteTarget ? (

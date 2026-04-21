@@ -1,6 +1,10 @@
-import { ArrowLeft, ImagePlus, MapPin, Trash2 } from 'lucide-react';
-import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Expand, ImagePlus, Trash2, X } from 'lucide-react';
+import { type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+
+import 'leaflet/dist/leaflet.css';
 
 import type { AppShellOutletContext } from '../components/layout/AppShellBare';
 import { Button } from '../components/ui/Button';
@@ -16,6 +20,7 @@ const REQUEST_PHOTO_LIMIT = 3;
 const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const DEFAULT_LATITUDE = '51.1694';
 const DEFAULT_LONGITUDE = '71.4491';
+const CREATE_MAP_PICKER_ZOOM = 13;
 
 const normalizeCoordinate = (value: string) => value.trim().replace(',', '.');
 
@@ -36,6 +41,34 @@ const cityCoordinate = (value: string | null | undefined, fallback: string) => {
   return normalizeCoordinate(String(value));
 };
 
+const CreateMapViewportSync = ({ latitude, longitude }: { latitude: number | null; longitude: number | null }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      map.invalidateSize();
+
+      if (latitude !== null && longitude !== null) {
+        map.setView([latitude, longitude], Math.max(map.getZoom(), CREATE_MAP_PICKER_ZOOM), { animate: false });
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [latitude, longitude, map]);
+
+  return null;
+};
+
+const CreateMapCoordinateEvents = ({ onSelect }: { onSelect: (latitude: number, longitude: number) => void }) => {
+  useMapEvents({
+    click: (event) => {
+      onSelect(event.latlng.lat, event.latlng.lng);
+    },
+  });
+
+  return null;
+};
+
 const CREATE_PAGE_COPY = {
   kk: {
     title: 'Жаңа өтінім',
@@ -49,6 +82,13 @@ const CREATE_PAGE_COPY = {
     cityCenter: 'Қала центрін қою',
     back: 'Қайту',
     submit: 'Жіберу',
+    pickFiles: 'Файл таңдау',
+    mapHint: 'Картадан мәселе орнын белгілеңіз.',
+    previousPhoto: 'Алдыңғы фото',
+    nextPhoto: 'Келесі фото',
+    openPhoto: 'Толық ашу',
+    closePhoto: 'Жабу',
+    photoIndex: 'Фото {current}/{total}',
     invalidPhotoType: 'Тек JPG, PNG, WEBP форматтары қолданылады.',
     photoLimit: 'Бір өтінімге максимум 3 фото қосылады.',
     coordsInvalid: 'Координатаны дұрыс енгізіңіз.',
@@ -69,6 +109,13 @@ const CREATE_PAGE_COPY = {
     cityCenter: 'Поставить центр города',
     back: 'Назад',
     submit: 'Отправить',
+    pickFiles: 'Выбрать файл',
+    mapHint: 'Отметьте место проблемы на карте.',
+    previousPhoto: 'Предыдущее фото',
+    nextPhoto: 'Следующее фото',
+    openPhoto: 'Открыть полностью',
+    closePhoto: 'Закрыть',
+    photoIndex: 'Фото {current}/{total}',
     invalidPhotoType: 'Поддерживаются только JPG, PNG, WEBP.',
     photoLimit: 'Максимум 3 фото для одной заявки.',
     coordsInvalid: 'Проверьте корректность координат.',
@@ -89,6 +136,13 @@ const CREATE_PAGE_COPY = {
     cityCenter: 'Use city center',
     back: 'Back',
     submit: 'Submit',
+    pickFiles: 'Choose file',
+    mapHint: 'Mark issue location on the map.',
+    previousPhoto: 'Previous photo',
+    nextPhoto: 'Next photo',
+    openPhoto: 'Open full size',
+    closePhoto: 'Close',
+    photoIndex: 'Photo {current}/{total}',
     invalidPhotoType: 'Only JPG, PNG, WEBP files are supported.',
     photoLimit: 'Maximum 3 photos per request.',
     coordsInvalid: 'Please check coordinate values.',
@@ -105,7 +159,6 @@ export const RequestFormPage = () => {
   const { pushToast } = useToast();
   const { cities, selectedCityId } = useOutletContext<AppShellOutletContext>();
   const copy = CREATE_PAGE_COPY[language];
-  const photosHintText = copy.photosHint.replace(/\d+/, String(REQUEST_PHOTO_LIMIT));
   const photoLimitText = copy.photoLimit.replace(/\d+/, String(REQUEST_PHOTO_LIMIT));
 
   const [loading, setLoading] = useState(true);
@@ -113,6 +166,9 @@ export const RequestFormPage = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -122,6 +178,15 @@ export const RequestFormPage = () => {
     latitude: '',
     longitude: '',
   });
+
+  const photoUrls = useMemo(() => photos.map((file) => URL.createObjectURL(file)), [photos]);
+
+  useEffect(
+    () => () => {
+      photoUrls.forEach((url) => URL.revokeObjectURL(url));
+    },
+    [photoUrls],
+  );
 
   useEffect(() => {
     let active = true;
@@ -214,6 +279,11 @@ export const RequestFormPage = () => {
 
   const latitudeNumber = parseCoordinate(form.latitude);
   const longitudeNumber = parseCoordinate(form.longitude);
+  const selectedCityLatitude = selectedCity ? parseCoordinate(cityCoordinate(selectedCity.latitude, DEFAULT_LATITUDE)) : null;
+  const selectedCityLongitude = selectedCity ? parseCoordinate(cityCoordinate(selectedCity.longitude, DEFAULT_LONGITUDE)) : null;
+  const mapCenterLatitude = latitudeNumber ?? selectedCityLatitude ?? parseCoordinate(DEFAULT_LATITUDE) ?? 51.1694;
+  const mapCenterLongitude = longitudeNumber ?? selectedCityLongitude ?? parseCoordinate(DEFAULT_LONGITUDE) ?? 71.4491;
+  const mapCenter: [number, number] = [mapCenterLatitude, mapCenterLongitude];
   const hasValidCoordinates =
     latitudeNumber !== null &&
     longitudeNumber !== null &&
@@ -229,6 +299,23 @@ export const RequestFormPage = () => {
     Boolean(form.cityId) &&
     hasValidCoordinates;
 
+  const currentPhotoIndex = photos.length > 0 ? Math.min(activePhotoIndex, photos.length - 1) : 0;
+  const currentPhotoUrl = photos.length > 0 ? photoUrls[currentPhotoIndex] : null;
+  const currentPhoto = photos.length > 0 ? photos[currentPhotoIndex] : null;
+  const currentPhotoCounter = copy.photoIndex
+    .replace('{current}', String(photos.length > 0 ? currentPhotoIndex + 1 : 0))
+    .replace('{total}', String(photos.length));
+
+  useEffect(() => {
+    if (photos.length === 0) {
+      setActivePhotoIndex(0);
+      setPhotoPreviewOpen(false);
+      return;
+    }
+
+    setActivePhotoIndex((current) => Math.min(current, photos.length - 1));
+  }, [photos.length]);
+
   const handleCityChange = (cityId: string) => {
     const city = cities.find((item) => item.id === cityId) ?? null;
 
@@ -238,17 +325,6 @@ export const RequestFormPage = () => {
       districtId: '',
       latitude: city ? cityCoordinate(city.latitude, current.latitude || DEFAULT_LATITUDE) : current.latitude,
       longitude: city ? cityCoordinate(city.longitude, current.longitude || DEFAULT_LONGITUDE) : current.longitude,
-    }));
-  };
-
-  const setCityCenterCoordinates = () => {
-    const nextLatitude = selectedCity ? cityCoordinate(selectedCity.latitude, DEFAULT_LATITUDE) : DEFAULT_LATITUDE;
-    const nextLongitude = selectedCity ? cityCoordinate(selectedCity.longitude, DEFAULT_LONGITUDE) : DEFAULT_LONGITUDE;
-
-    setForm((current) => ({
-      ...current,
-      latitude: nextLatitude,
-      longitude: nextLongitude,
     }));
   };
 
@@ -283,6 +359,20 @@ export const RequestFormPage = () => {
 
   const removePhoto = (index: number) => {
     setPhotos((current) => current.filter((_, currentIndex) => currentIndex !== index));
+  };
+
+  const movePhoto = (direction: 'prev' | 'next') => {
+    if (photos.length <= 1) {
+      return;
+    }
+
+    setActivePhotoIndex((current) => {
+      if (direction === 'prev') {
+        return (current - 1 + photos.length) % photos.length;
+      }
+
+      return (current + 1) % photos.length;
+    });
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -367,7 +457,6 @@ export const RequestFormPage = () => {
       <header className="request-create-minimal__hero">
         <div className="request-create-minimal__hero-copy">
           <strong>{copy.title}</strong>
-          <p>{copy.subtitle}</p>
         </div>
         <Button type="button" variant="secondary" className="request-create-minimal__back-button" onClick={() => navigate('/requests')}>
           <ArrowLeft size={15} />
@@ -386,7 +475,6 @@ export const RequestFormPage = () => {
               required
               minLength={4}
             />
-            <div />
           </div>
           <TextareaField
             label={t('common.description')}
@@ -441,42 +529,100 @@ export const RequestFormPage = () => {
 
         <section className="request-create-minimal__section">
           <h3>{copy.location}</h3>
-          <div className="request-create-minimal__grid request-create-minimal__grid--coords">
-            <InputField
-              label={t('common.latitude')}
-              value={form.latitude}
-              onChange={(event) => setForm((current) => ({ ...current, latitude: event.target.value }))}
-              required
-            />
-            <InputField
-              label={t('common.longitude')}
-              value={form.longitude}
-              onChange={(event) => setForm((current) => ({ ...current, longitude: event.target.value }))}
-              required
-            />
-          </div>
-          <div className="request-create-minimal__coords-actions">
-            <Button type="button" variant="secondary" onClick={setCityCenterCoordinates}>
-              <MapPin size={15} />
-              {copy.cityCenter}
-            </Button>
+          <div className="request-create-map__viewport request-create-minimal__map-viewport">
+            <MapContainer
+              center={mapCenter}
+              zoom={hasValidCoordinates ? CREATE_MAP_PICKER_ZOOM : 11}
+              scrollWheelZoom
+              className="request-create-map__leaflet"
+              attributionControl={false}
+            >
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <CreateMapViewportSync latitude={mapCenterLatitude} longitude={mapCenterLongitude} />
+              <CreateMapCoordinateEvents
+                onSelect={(latitude, longitude) =>
+                  setForm((current) => ({
+                    ...current,
+                    latitude: latitude.toFixed(6),
+                    longitude: longitude.toFixed(6),
+                  }))
+                }
+              />
+              {hasValidCoordinates ? (
+                <CircleMarker
+                  center={[latitudeNumber, longitudeNumber]}
+                  radius={7}
+                  pathOptions={{
+                    color: '#0f172a',
+                    weight: 2,
+                    fillColor: '#facc15',
+                    fillOpacity: 0.92,
+                  }}
+                />
+              ) : null}
+            </MapContainer>
           </div>
         </section>
 
         <section className="request-create-minimal__section">
-          <h3>{copy.photos}</h3>
-          <p className="request-create-minimal__hint">{photosHintText}</p>
-          <InputField label={copy.photos} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handlePhotoSelect} />
-          {photos.length ? (
-            <div className="request-create-minimal__photos-list">
-              {photos.map((file, index) => (
-                <div key={`${file.name}-${index}`} className="request-create-minimal__photo-item">
-                  <span>{file.name}</span>
-                  <button type="button" onClick={() => removePhoto(index)} aria-label={t('common.remove')}>
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
+          <input
+            ref={photoInputRef}
+            className="request-create-minimal__file-input"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            onChange={handlePhotoSelect}
+          />
+          <div className="request-create-minimal__file-row">
+            <button
+              type="button"
+              className="request-create-minimal__file-button"
+              onClick={() => photoInputRef.current?.click()}
+            >
+              {copy.pickFiles}
+            </button>
+          </div>
+          {currentPhoto && currentPhotoUrl ? (
+            <div className="request-create-minimal__photo-carousel">
+              <div className="request-create-minimal__photo-stage">
+                <img src={currentPhotoUrl} alt={currentPhoto.name} />
+                <button
+                  type="button"
+                  className="request-create-minimal__photo-remove"
+                  onClick={() => removePhoto(currentPhotoIndex)}
+                  aria-label={t('common.remove')}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              <div className="request-create-minimal__photo-toolbar">
+                <button
+                  type="button"
+                  className="request-create-minimal__photo-nav"
+                  onClick={() => movePhoto('prev')}
+                  aria-label={copy.previousPhoto}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="request-create-minimal__photo-counter">{currentPhotoCounter}</span>
+                <button
+                  type="button"
+                  className="request-create-minimal__photo-nav"
+                  onClick={() => movePhoto('next')}
+                  aria-label={copy.nextPhoto}
+                >
+                  <ChevronRight size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="request-create-minimal__photo-open"
+                  onClick={() => setPhotoPreviewOpen(true)}
+                  aria-label={copy.openPhoto}
+                >
+                  <Expand size={15} />
+                  {copy.openPhoto}
+                </button>
+              </div>
             </div>
           ) : null}
         </section>
@@ -491,6 +637,47 @@ export const RequestFormPage = () => {
           </Button>
         </div>
       </form>
+
+      {photoPreviewOpen && currentPhoto && currentPhotoUrl && typeof document !== 'undefined'
+        ? createPortal(
+            <div className="profile-modal request-create-photo-modal" role="dialog" aria-modal="true" aria-label={copy.openPhoto}>
+              <button
+                type="button"
+                className="profile-modal__backdrop"
+                aria-label={copy.closePhoto}
+                onClick={() => setPhotoPreviewOpen(false)}
+              />
+              <article className="profile-modal__card glass-card request-create-photo-modal__card">
+                <button type="button" className="profile-modal__close" onClick={() => setPhotoPreviewOpen(false)} aria-label={copy.closePhoto}>
+                  <X size={18} />
+                </button>
+                <div className="request-create-photo-modal__image-wrap">
+                  <img src={currentPhotoUrl} alt={currentPhoto.name} className="request-create-photo-modal__image" />
+                </div>
+                <div className="request-create-photo-modal__toolbar">
+                  <button
+                    type="button"
+                    className="request-create-minimal__photo-nav"
+                    onClick={() => movePhoto('prev')}
+                    aria-label={copy.previousPhoto}
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className="request-create-minimal__photo-counter">{currentPhotoCounter}</span>
+                  <button
+                    type="button"
+                    className="request-create-minimal__photo-nav"
+                    onClick={() => movePhoto('next')}
+                    aria-label={copy.nextPhoto}
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </article>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 };

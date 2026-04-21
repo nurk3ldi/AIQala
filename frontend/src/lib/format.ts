@@ -22,9 +22,9 @@ export const formatRoleLabel = (role: UserRole) => translate(`roles.${role}`);
 
 export const formatStatusLabel = (status: RequestStatus) => translate(`requestStatus.${status}`);
 
-export const statusTone = (status: RequestStatus): 'warning' | 'accent' | 'success' =>
+export const statusTone = (status: RequestStatus): 'danger' | 'accent' | 'success' =>
   ({
-    accepted: 'warning',
+    accepted: 'danger',
     in_progress: 'accent',
     resolved: 'success',
   } as const)[status];
