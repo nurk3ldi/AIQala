@@ -466,6 +466,38 @@ export const RequestDetailPage = () => {
   const requestPhotoAlt = t('requestDetail.mediaTitle');
   const canUseDiscussionComposer = user?.role === 'user' || user?.role === 'organization';
   const currentUserInitial = (user?.fullName?.trim().charAt(0) || 'U').toUpperCase();
+  const mainInfoPanel = (
+    <article className="panel glass-card request-detail-minimal__main-info-panel">
+      <div className="panel__header">
+        <h3>{mainInfoTitle}</h3>
+      </div>
+      <div className="kv-grid">
+        <div className="kv-item">
+          <span>{t('common.category')}</span>
+          <strong>{request.category?.name ?? t('common.unknown')}</strong>
+        </div>
+        <div className="kv-item">
+          <span>{t('common.city')}</span>
+          <strong>
+            {request.city?.name ?? t('common.unknown')}
+            {request.district?.name ? ` / ${request.district.name}` : ''}
+          </strong>
+        </div>
+        <div className="kv-item">
+          <span>{t('common.requester')}</span>
+          <strong>{request.requester?.fullName ?? t('requestDetail.requesterFallback')}</strong>
+        </div>
+        <div className="kv-item">
+          <span>{t('common.organization')}</span>
+          <strong>{request.organization?.name ?? t('requestDetail.unassigned')}</strong>
+        </div>
+        <div className="kv-item">
+          <span>{t('common.createdAt')}</span>
+          <strong>{formatDateTime(request.createdAt)}</strong>
+        </div>
+      </div>
+    </article>
+  );
 
   return (
     <div className="page request-detail-minimal">
@@ -497,38 +529,13 @@ export const RequestDetailPage = () => {
         </div>
       </section>
 
-      <section className={`split-layout request-detail-minimal__layout ${hasSidePanel ? '' : 'request-detail-minimal__layout--full'}`.trim()}>
-        <div className="page">
-          <article className="panel glass-card">
-            <div className="panel__header">
-              <h3>{mainInfoTitle}</h3>
-            </div>
-            <div className="kv-grid">
-              <div className="kv-item">
-                <span>{t('common.category')}</span>
-                <strong>{request.category?.name ?? t('common.unknown')}</strong>
-              </div>
-              <div className="kv-item">
-                <span>{t('common.city')}</span>
-                <strong>
-                  {request.city?.name ?? t('common.unknown')}
-                  {request.district?.name ? ` / ${request.district.name}` : ''}
-                </strong>
-              </div>
-              <div className="kv-item">
-                <span>{t('common.requester')}</span>
-                <strong>{request.requester?.fullName ?? t('requestDetail.requesterFallback')}</strong>
-              </div>
-              <div className="kv-item">
-                <span>{t('common.organization')}</span>
-                <strong>{request.organization?.name ?? t('requestDetail.unassigned')}</strong>
-              </div>
-              <div className="kv-item">
-                <span>{t('common.createdAt')}</span>
-                <strong>{formatDateTime(request.createdAt)}</strong>
-              </div>
-            </div>
-          </article>
+      {user?.role === 'admin' ? mainInfoPanel : null}
+
+      <section
+        className={`split-layout request-detail-minimal__layout ${hasSidePanel ? '' : 'request-detail-minimal__layout--full'} ${user?.role === 'admin' ? 'request-detail-minimal__layout--admin' : ''}`.trim()}
+      >
+        <div className="page request-detail-minimal__main">
+          {user?.role === 'admin' ? null : mainInfoPanel}
 
           <article className="panel glass-card">
             <div className="panel__header">
@@ -672,185 +679,187 @@ export const RequestDetailPage = () => {
             </div>
           </article>
 
-          <article className="panel glass-card">
-            <div className="panel__header">
-              <span className="section-title__eyebrow">{t('requestDetail.discussionEyebrow')}</span>
-              <h3>{commentsTitle}</h3>
-            </div>
-            <div className="request-detail-discussion">
-              <div className="request-detail-discussion__list">
-                {request.comments?.length ? (
-                  request.comments.map((comment) => {
-                    const authorName =
-                      comment.authorOrganization?.name ??
-                      comment.authorUser?.fullName ??
-                      (comment.authorUserId === user?.id ? user?.fullName : null) ??
-                      t('requestDetail.authorFallback');
-                    const authorAvatar =
-                      comment.authorUser?.avatarUrl ??
-                      (comment.authorUserId === user?.id ? user?.avatarUrl ?? null : null) ??
-                      comment.authorOrganization?.logoUrl ??
-                      null;
-                    const authorInitial = authorName.trim().charAt(0).toUpperCase() || '?';
-                    const isOwnComment = canManageComment(comment);
-                    const isEditing = editingCommentId === comment.id;
-                    const isActionBusy = commentActionBusyId === comment.id;
-
-                    return (
-                      <article key={comment.id} className="request-detail-comment-item">
-                        <span className="request-detail-comment-avatar" aria-hidden="true">
-                          {authorAvatar ? (
-                            <img src={resolveFileUrl(authorAvatar)} alt={authorName} className="request-detail-comment-avatar-image" />
-                          ) : (
-                            authorInitial
-                          )}
-                        </span>
-                        <div className="request-detail-comment-body">
-                          <div className="request-detail-comment-meta">
-                            <strong>{authorName}</strong>
-                            <div className="request-detail-comment-meta-right">
-                              <span>{formatDateTime(comment.createdAt)}</span>
-                              {isOwnComment && !isEditing ? (
-                                <div className="request-detail-comment-meta-actions">
-                                  <button
-                                    type="button"
-                                    className="request-detail-comment-action request-detail-comment-action--icon request-detail-comment-action--compact"
-                                    onClick={() => startCommentEdit(comment)}
-                                    disabled={isActionBusy}
-                                    aria-label={t('common.edit')}
-                                  >
-                                    <Pencil size={12} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="request-detail-comment-delete request-detail-comment-action--icon request-detail-comment-action--compact"
-                                    onClick={() => void deleteOwnComment(comment.id)}
-                                    disabled={isActionBusy}
-                                    aria-label={t('common.delete')}
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-
-                          {isEditing ? (
-                            <div className="request-detail-comment-editor">
-                              <textarea
-                                className="request-detail-comment-input request-detail-comment-input--inline"
-                                value={editingCommentText}
-                                onChange={(event) => setEditingCommentText(event.target.value)}
-                                rows={2}
-                              />
-                              <div className="request-detail-comment-actions">
-                                <button
-                                  type="button"
-                                  className="request-detail-comment-action"
-                                  onClick={cancelCommentEdit}
-                                  disabled={isActionBusy}
-                                >
-                                  {t('common.close')}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="request-detail-comment-submit"
-                                  onClick={() => void saveCommentEdit(comment.id)}
-                                  disabled={isActionBusy || !editingCommentText.trim()}
-                                >
-                                  {t('common.save')}
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <p>{comment.text}</p>
-                            </>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })
-                ) : (
-                  <p className="request-detail-comments-empty">{t('requestDetail.commentsEmptyDescription')}</p>
-                )}
-              </div>
-
-              {canUseDiscussionComposer ? (
-                <form className="request-detail-comment-form" onSubmit={submitDiscussionComment}>
-                  <span className="request-detail-comment-avatar" aria-hidden="true">
-                    {user?.avatarUrl ? (
-                      <img src={resolveFileUrl(user.avatarUrl)} alt={user.fullName} className="request-detail-comment-avatar-image" />
-                    ) : (
-                      currentUserInitial
-                    )}
-                  </span>
-                  <div className="request-detail-comment-editor">
-                    <textarea
-                      className="request-detail-comment-input"
-                      value={discussionText}
-                      onChange={(event) => setDiscussionText(event.target.value)}
-                      placeholder={t('requestDetail.comment')}
-                      rows={2}
-                    />
-                    <div className="request-detail-comment-actions">
-                      <button
-                        type="button"
-                        className="request-detail-comment-action"
-                        onClick={() => setDiscussionText('')}
-                        disabled={discussionBusy || !discussionText.trim()}
-                      >
-                        {t('common.close')}
-                      </button>
-                      <button type="submit" className="request-detail-comment-submit" disabled={discussionBusy || !discussionText.trim()}>
-                        {t('requestDetail.publishComment')}
-                      </button>
-                    </div>
-                  </div>
-                </form>
-              ) : null}
-            </div>
-          </article>
-        </div>
-
-        {hasSidePanel ? <div className="page">
-          {user?.role === 'admin' ? (
+          {user?.role !== 'admin' ? (
             <article className="panel glass-card">
               <div className="panel__header">
-                <span className="section-title__eyebrow">{t('requestDetail.adminEyebrow')}</span>
-                <h3>{t('requestDetail.adminTitle')}</h3>
+                <span className="section-title__eyebrow">{t('requestDetail.discussionEyebrow')}</span>
+                <h3>{commentsTitle}</h3>
               </div>
-              <form className="page" onSubmit={assignRequest}>
-                <SelectField
-                  label={t('common.organization')}
-                  value={assignForm.organizationId}
-                  onChange={(event) => setAssignForm((current) => ({ ...current, organizationId: event.target.value }))}
-                  required
-                >
-                  <option value="">{t('requestDetail.chooseOrganization')}</option>
-                  {organizations.map((organization) => (
-                    <option key={organization.id} value={organization.id}>
-                      {organization.name}
-                    </option>
-                  ))}
-                </SelectField>
-                <SelectField
-                  label={t('common.priority')}
-                  value={assignForm.priority}
-                  onChange={(event) => setAssignForm((current) => ({ ...current, priority: event.target.value }))}
-                >
-                  <option value="low">{t('requestPriority.low')}</option>
-                  <option value="medium">{t('requestPriority.medium')}</option>
-                  <option value="high">{t('requestPriority.high')}</option>
-                </SelectField>
-                <Button type="submit" busy={assignBusy}>
-                  {t('requestDetail.saveAssignment')}
-                </Button>
-                <Button type="button" variant="danger" onClick={deleteRequest}>
-                  {t('requestDetail.deleteRequest')}
-                </Button>
-              </form>
+              <div className="request-detail-discussion">
+                <div className="request-detail-discussion__list">
+                  {request.comments?.length ? (
+                    request.comments.map((comment) => {
+                      const authorName =
+                        comment.authorOrganization?.name ??
+                        comment.authorUser?.fullName ??
+                        (comment.authorUserId === user?.id ? user?.fullName : null) ??
+                        t('requestDetail.authorFallback');
+                      const authorAvatar =
+                        comment.authorUser?.avatarUrl ??
+                        (comment.authorUserId === user?.id ? user?.avatarUrl ?? null : null) ??
+                        comment.authorOrganization?.logoUrl ??
+                        null;
+                      const authorInitial = authorName.trim().charAt(0).toUpperCase() || '?';
+                      const isOwnComment = canManageComment(comment);
+                      const isEditing = editingCommentId === comment.id;
+                      const isActionBusy = commentActionBusyId === comment.id;
+
+                      return (
+                        <article key={comment.id} className="request-detail-comment-item">
+                          <span className="request-detail-comment-avatar" aria-hidden="true">
+                            {authorAvatar ? (
+                              <img src={resolveFileUrl(authorAvatar)} alt={authorName} className="request-detail-comment-avatar-image" />
+                            ) : (
+                              authorInitial
+                            )}
+                          </span>
+                          <div className="request-detail-comment-body">
+                            <div className="request-detail-comment-meta">
+                              <strong>{authorName}</strong>
+                              <div className="request-detail-comment-meta-right">
+                                <span>{formatDateTime(comment.createdAt)}</span>
+                                {isOwnComment && !isEditing ? (
+                                  <div className="request-detail-comment-meta-actions">
+                                    <button
+                                      type="button"
+                                      className="request-detail-comment-action request-detail-comment-action--icon request-detail-comment-action--compact"
+                                      onClick={() => startCommentEdit(comment)}
+                                      disabled={isActionBusy}
+                                      aria-label={t('common.edit')}
+                                    >
+                                      <Pencil size={12} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="request-detail-comment-delete request-detail-comment-action--icon request-detail-comment-action--compact"
+                                      onClick={() => void deleteOwnComment(comment.id)}
+                                      disabled={isActionBusy}
+                                      aria-label={t('common.delete')}
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            {isEditing ? (
+                              <div className="request-detail-comment-editor">
+                                <textarea
+                                  className="request-detail-comment-input request-detail-comment-input--inline"
+                                  value={editingCommentText}
+                                  onChange={(event) => setEditingCommentText(event.target.value)}
+                                  rows={2}
+                                />
+                                <div className="request-detail-comment-actions">
+                                  <button
+                                    type="button"
+                                    className="request-detail-comment-action"
+                                    onClick={cancelCommentEdit}
+                                    disabled={isActionBusy}
+                                  >
+                                    {t('common.close')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="request-detail-comment-submit"
+                                    onClick={() => void saveCommentEdit(comment.id)}
+                                    disabled={isActionBusy || !editingCommentText.trim()}
+                                  >
+                                    {t('common.save')}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p>{comment.text}</p>
+                              </>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })
+                  ) : (
+                    <p className="request-detail-comments-empty">{t('requestDetail.commentsEmptyDescription')}</p>
+                  )}
+                </div>
+
+                {canUseDiscussionComposer ? (
+                  <form className="request-detail-comment-form" onSubmit={submitDiscussionComment}>
+                    <span className="request-detail-comment-avatar" aria-hidden="true">
+                      {user?.avatarUrl ? (
+                        <img src={resolveFileUrl(user.avatarUrl)} alt={user.fullName} className="request-detail-comment-avatar-image" />
+                      ) : (
+                        currentUserInitial
+                      )}
+                    </span>
+                    <div className="request-detail-comment-editor">
+                      <textarea
+                        className="request-detail-comment-input"
+                        value={discussionText}
+                        onChange={(event) => setDiscussionText(event.target.value)}
+                        placeholder={t('requestDetail.comment')}
+                        rows={2}
+                      />
+                      <div className="request-detail-comment-actions">
+                        <button
+                          type="button"
+                          className="request-detail-comment-action"
+                          onClick={() => setDiscussionText('')}
+                          disabled={discussionBusy || !discussionText.trim()}
+                        >
+                          {t('common.close')}
+                        </button>
+                        <button type="submit" className="request-detail-comment-submit" disabled={discussionBusy || !discussionText.trim()}>
+                          {t('requestDetail.publishComment')}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                ) : null}
+              </div>
             </article>
+          ) : null}
+        </div>
+
+        {hasSidePanel ? (
+          <div className={`page request-detail-minimal__side ${user?.role === 'admin' ? 'request-detail-minimal__side--admin' : ''}`.trim()}>
+          {user?.role === 'admin' ? (
+            <>
+              <h4 className="request-detail-minimal__assign-title">{t('requestDetail.adminTitle')}</h4>
+              <article className="panel glass-card request-detail-minimal__assign-panel">
+                <form className="page request-detail-minimal__assign-form" onSubmit={assignRequest}>
+                  <SelectField
+                    label={t('common.organization')}
+                    value={assignForm.organizationId}
+                    onChange={(event) => setAssignForm((current) => ({ ...current, organizationId: event.target.value }))}
+                    required
+                  >
+                    <option value="">{t('requestDetail.chooseOrganization')}</option>
+                    {organizations.map((organization) => (
+                      <option key={organization.id} value={organization.id}>
+                        {organization.name}
+                      </option>
+                    ))}
+                  </SelectField>
+                  <SelectField
+                    label={t('common.priority')}
+                    value={assignForm.priority}
+                    onChange={(event) => setAssignForm((current) => ({ ...current, priority: event.target.value }))}
+                  >
+                    <option value="low">{t('requestPriority.low')}</option>
+                    <option value="medium">{t('requestPriority.medium')}</option>
+                    <option value="high">{t('requestPriority.high')}</option>
+                  </SelectField>
+                  <Button type="submit" busy={assignBusy}>
+                    {t('requestDetail.saveAssignment')}
+                  </Button>
+                  <Button type="button" variant="danger" onClick={deleteRequest}>
+                    {t('requestDetail.deleteRequest')}
+                  </Button>
+                </form>
+              </article>
+            </>
           ) : null}
 
           {user?.role === 'organization' ? (
@@ -973,7 +982,8 @@ export const RequestDetailPage = () => {
               </article>
             </>
           ) : null}
-        </div> : null}
+          </div>
+        ) : null}
       </section>
 
       {photoViewer ? (

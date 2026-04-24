@@ -1,5 +1,6 @@
 ﻿import { Building2, CircleOff, Layers3, MapPin, Pencil, Phone, Power, UserPlus, Users, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
 import { ImageUp, Trash2 } from 'lucide-react';
@@ -602,6 +603,22 @@ export const OrganizationsPage = () => {
     [organizationLogoPreview],
   );
 
+  useEffect(() => {
+    const lockScroll = Boolean(modalState || confirmState);
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    if (lockScroll) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [modalState, confirmState]);
+
   const closeModal = () => {
     resetOrganizationLogoState();
     setModalState(null);
@@ -894,6 +911,9 @@ export const OrganizationsPage = () => {
   });
   const selectedCategories = selectedOrganization?.categories ?? [];
   const selectedAccounts = selectedOrganization?.accounts ?? [];
+  const selectedCityLabel = selectedCityId
+    ? cities.find((city) => city.id === selectedCityId)?.name ?? t('organizations.cityFallback')
+    : t('catalog.chooseCity');
   const selectedCityName = selectedOrganization?.city?.name ?? t('organizations.cityFallback');
   const selectedDistrictName = selectedOrganization?.district?.name ?? copy.allDistricts;
   const organizationLogoSource = organizationLogoPreview
@@ -963,39 +983,133 @@ export const OrganizationsPage = () => {
         };
   })();
 
+  const organizationsModalShellStyle: CSSProperties = {
+    position: 'fixed',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 'clamp(0.75rem, 1.8vw, 1rem)',
+    zIndex: 1200,
+  };
+  const activeOrganizationsCount = organizations.filter((organization) => organization.isActive).length;
+  const inactiveOrganizationsCount = organizations.length - activeOrganizationsCount;
+  const filterSummaries: Array<{
+    key: OrganizationFilter;
+    label: string;
+    count: number;
+    toneClass: string;
+    icon: typeof Building2;
+  }> = [
+    {
+      key: 'all',
+      label: polishCopy.tabs.all,
+      count: organizations.length,
+      toneClass: 'organizations-minimal__status-tab--tone-all',
+      icon: Building2,
+    },
+    {
+      key: 'active',
+      label: polishCopy.tabs.active,
+      count: activeOrganizationsCount,
+      toneClass: 'organizations-minimal__status-tab--tone-active',
+      icon: Power,
+    },
+    {
+      key: 'inactive',
+      label: polishCopy.tabs.inactive,
+      count: inactiveOrganizationsCount,
+      toneClass: 'organizations-minimal__status-tab--tone-inactive',
+      icon: CircleOff,
+    },
+  ];
+
   return (
-    <div className="page organizations-page">
-      <section className="page-header glass-card">
-        <div>
-          <p className="organizations-page__subtitle">{copy.subtitle}</p>
+    <div className="page organizations-page admin-surface admin-surface--organizations">
+      <section className="page-header glass-card admin-surface__hero organizations-minimal__hero">
+        <div className="organizations-minimal__hero-copy">
+          <strong>{t('organizations.title')}</strong>
+          <p className="organizations-page__subtitle">{t('organizations.description')}</p>
+        </div>
+
+        <div className="organizations-minimal__hero-actions">
+          <span className="organizations-minimal__hero-count">{filteredOrganizations.length}</span>
         </div>
       </section>
 
-      <section className="management-toolbar glass-card">
-        <div className="management-toolbar__actions organizations-toolbar__actions">
-          <Button type="button" variant="secondary" className="management-quick-action" onClick={openCreateOrganization}>
+      <section className="organizations-minimal__status-strip">
+        {filterSummaries.map((filterItem) => {
+          const Icon = filterItem.icon;
+
+          return (
+            <button
+              key={filterItem.key}
+              type="button"
+              className={`organizations-minimal__status-tab ${filterItem.toneClass} ${
+                activeFilter === filterItem.key ? 'organizations-minimal__status-tab--active' : ''
+              }`.trim()}
+              onClick={() => setActiveFilter(filterItem.key)}
+            >
+              <span className="organizations-minimal__status-tab-icon">
+                <Icon size={18} />
+              </span>
+              <span className="organizations-minimal__status-tab-copy">
+                <strong>{filterItem.label}</strong>
+                <span>{filterItem.count}</span>
+              </span>
+            </button>
+          );
+        })}
+      </section>
+
+      <section className="management-toolbar glass-card admin-surface__toolbar organizations-minimal__toolbar">
+        <div className="management-toolbar__actions organizations-toolbar__actions admin-surface__toolbar-row organizations-minimal__toolbar-row">
+          <div className="organizations-minimal__search-actions">
+            <label className="organizations-search organizations-minimal__search">
+              <Search size={18} />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={polishCopy.searchPlaceholder}
+                aria-label={polishCopy.searchPlaceholder}
+              />
+            </label>
+            <Button
+              type="button"
+              variant="secondary"
+              className="organizations-filter-button organizations-minimal__filter-button"
+              onClick={openFilters}
+            >
+              <SlidersHorizontal size={18} />
+              <span>{polishCopy.filterAction}</span>
+            </Button>
+          </div>
+
+          <Button type="button" className="organizations-minimal__new-button" onClick={openCreateOrganization}>
             <Building2 size={18} />
             <span>{copy.createOrganization}</span>
           </Button>
-          <label className="organizations-search">
-            <Search size={18} />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={polishCopy.searchPlaceholder}
-              aria-label={polishCopy.searchPlaceholder}
-            />
-          </label>
-          <Button type="button" variant="secondary" className="management-quick-action organizations-filter-button" onClick={openFilters}>
-            <SlidersHorizontal size={18} />
-            <span>{polishCopy.filterAction}</span>
-          </Button>
+        </div>
+
+        <div className="organizations-minimal__toolbar-meta">
+          <span className="organizations-minimal__toolbar-chip">
+            <MapPin size={14} />
+            {selectedCityLabel}
+          </span>
+          <span className="organizations-minimal__toolbar-chip">
+            <Users size={14} />
+            {filteredOrganizations.length}/{organizations.length}
+          </span>
+          <span className="organizations-minimal__toolbar-chip">
+            <Layers3 size={14} />
+            {categories.length}
+          </span>
         </div>
       </section>
 
       {filteredOrganizations.length ? (
-        <div className="management-grid organizations-grid">
+        <div className="organizations-minimal__list">
           {filteredOrganizations.map((organization) => {
             const isSelected = organization.id === selectedOrganizationId;
             const categoryCount =
@@ -1012,8 +1126,8 @@ export const OrganizationsPage = () => {
                   isSelected ? 'organizations-card--selected' : ''
                 }`.trim()}
               >
-                <div className="management-card__head">
-                  <div className="management-card__identity">
+                <div className="management-card__head organizations-minimal__row-head">
+                  <div className="management-card__identity organizations-minimal__row-identity">
                     <span className="management-card__glyph management-card__glyph--organization organizations-logo">
                       {organization.logoUrl ? (
                         <img src={resolveFileUrl(organization.logoUrl)} alt={organization.name} />
@@ -1021,13 +1135,30 @@ export const OrganizationsPage = () => {
                         <Building2 size={18} />
                       )}
                     </span>
-                    <div className="management-card__copy">
+                    <div className="management-card__copy organizations-minimal__row-copy">
                       <strong>{organization.name}</strong>
-                      <p>{organization.city?.name ?? t('organizations.cityFallback')}</p>
+                      <p>{organization.description || organization.city?.name || t('organizations.cityFallback')}</p>
+                      <div className="management-card__meta organizations-card__meta organizations-minimal__row-meta">
+                        <Badge tone={organization.isActive ? 'success' : 'danger'}>
+                          {organization.isActive ? t('common.active') : t('common.disabled')}
+                        </Badge>
+                        <span className="management-chip">
+                          <MapPin size={14} />
+                          {organization.city?.name ?? t('organizations.cityFallback')}
+                        </span>
+                        <span className="management-chip">
+                          <Layers3 size={14} />
+                          {categoryCount} {copy.categoryCount}
+                        </span>
+                        <span className="management-chip">
+                          <Users size={14} />
+                          {accountCount} {copy.operatorCount}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="management-card__actions">
+                  <div className="management-card__actions organizations-minimal__row-actions">
                     <button
                       type="button"
                       className="management-icon-button"
@@ -1057,20 +1188,6 @@ export const OrganizationsPage = () => {
                     </button>
                   </div>
                 </div>
-
-                <div className="management-card__meta organizations-card__meta">
-                  <Badge tone={organization.isActive ? 'success' : 'danger'}>
-                    {organization.isActive ? t('common.active') : t('common.disabled')}
-                  </Badge>
-                  <span className="management-chip">
-                    <Layers3 size={14} />
-                    {categoryCount} {copy.categoryCount}
-                  </span>
-                  <span className="management-chip">
-                    <Users size={14} />
-                    {accountCount} {copy.operatorCount}
-                  </span>
-                </div>
               </article>
             );
           })}
@@ -1080,7 +1197,10 @@ export const OrganizationsPage = () => {
       )}
 
       {confirmState && confirmCopy ? (
-        <div className="profile-modal management-modal organizations-confirm-modal">
+        <div
+          className="profile-modal management-modal organizations-confirm-modal organizations-modal-shell"
+          style={organizationsModalShellStyle}
+        >
           <button
             type="button"
             className="profile-modal__backdrop"
@@ -1131,11 +1251,11 @@ export const OrganizationsPage = () => {
       ) : null}
 
       {modalState ? (
-        <div className="profile-modal">
+        <div className="profile-modal organizations-modal-shell" style={organizationsModalShellStyle}>
           <button type="button" className="profile-modal__backdrop" aria-label={copy.modal.cancel} onClick={closeModal} />
 
           {modalState.type === 'filters' ? (
-            <article className="profile-modal__card glass-card organizations-modal__card organizations-modal__card--filter">
+            <article className="profile-modal__card glass-card organizations-modal__card organizations-modal__card--filter organizations-filter-modal">
               <div className="profile-modal__header">
                 <h3>{polishCopy.filterTitle}</h3>
                 <button type="button" className="profile-modal__close" onClick={closeModal} aria-label={copy.modal.cancel}>

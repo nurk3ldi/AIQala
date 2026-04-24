@@ -1,11 +1,110 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Monitor, MonitorX, Smartphone } from 'lucide-react';
 
 import { AppShell } from './components/layout/AppShellBare';
 import { LoadingState } from './components/ui/LoadingState';
 import { useAuth } from './context/auth-context';
 import { useTranslation } from './context/language-context';
 import type { UserRole } from './types/api';
+
+const MOBILE_LAYOUT_BREAKPOINT = 760;
+const PHONE_DEVICE_BREAKPOINT = 900;
+
+const BLOCKED_MOBILE_ROLES: UserRole[] = ['admin', 'organization'];
+
+const detectDeviceState = () => {
+  if (typeof window === 'undefined') {
+    return {
+      isPhoneDevice: false,
+      isDesktopNarrow: false,
+    };
+  }
+
+  const width = window.innerWidth;
+  const userAgent = window.navigator.userAgent ?? '';
+  const maxTouchPoints = window.navigator.maxTouchPoints ?? 0;
+  const coarsePointer = typeof window.matchMedia === 'function' ? window.matchMedia('(pointer: coarse)').matches : false;
+  const isMobileUserAgent = /Android|iPhone|iPod|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+  const isTabletUserAgent = /iPad|Tablet/i.test(userAgent);
+  const isPhoneDevice = width <= PHONE_DEVICE_BREAKPOINT && !isTabletUserAgent && (isMobileUserAgent || (coarsePointer && maxTouchPoints > 0));
+  const isDesktopNarrow = width <= MOBILE_LAYOUT_BREAKPOINT && !isPhoneDevice;
+
+  return {
+    isPhoneDevice,
+    isDesktopNarrow,
+  };
+};
+
+type AccessGuardVariant = 'phone' | 'desktop-narrow';
+
+const accessGuardCopy = {
+  kk: {
+    phone: {
+      code: 'DESKTOP',
+      title: 'Бұл рөл телефоннан ашылмайды',
+      description: 'Админ және ұйым кабинеттерін десктоп немесе ноутбук арқылы ашыңыз.',
+      note: 'Сайтты компьютер арқылы қайта ашыңыз.',
+    },
+    desktopNarrow: {
+      code: '404',
+      title: 'Бұл режимде бет көрсетілмейді',
+      description: 'Терезе mobile өлшеміне түсіп кеткен. Сайтты бастапқы desktop режимімен қараңыз.',
+      note: 'Терезені кеңейтіп немесе масштабты қалыпқа келтіріңіз.',
+    },
+  },
+  ru: {
+    phone: {
+      code: 'DESKTOP',
+      title: 'Эта роль недоступна с телефона',
+      description: 'Кабинеты администратора и организации открывайте с десктопа или ноутбука.',
+      note: 'Откройте сайт с компьютера.',
+    },
+    desktopNarrow: {
+      code: '404',
+      title: 'Страница недоступна в этом режиме',
+      description: 'Окно браузера слишком узкое и сайт перешел в mobile-режим. Вернитесь к обычному desktop виду.',
+      note: 'Расширьте окно или верните стандартный масштаб.',
+    },
+  },
+  en: {
+    phone: {
+      code: 'DESKTOP',
+      title: 'This role is not available on phones',
+      description: 'Administrator and organization workspaces should be opened from a desktop or laptop.',
+      note: 'Open the site on a computer.',
+    },
+    desktopNarrow: {
+      code: '404',
+      title: 'This page is unavailable in this mode',
+      description: 'The browser window is too narrow and the site has switched into mobile layout. Return to the default desktop view.',
+      note: 'Widen the window or reset the zoom level.',
+    },
+  },
+} as const;
+
+const AccessGuardPage = ({ variant }: { variant: AccessGuardVariant }) => {
+  const { language } = useTranslation();
+  const copy = variant === 'phone' ? accessGuardCopy[language].phone : accessGuardCopy[language].desktopNarrow;
+  const Icon = variant === 'phone' ? Smartphone : MonitorX;
+
+  return (
+    <main className="access-guard">
+      <section className="access-guard__card" role="alert" aria-live="polite">
+        <div className="access-guard__badge">
+          <Icon size={22} />
+          <span>{copy.code}</span>
+        </div>
+        <h1>{copy.title}</h1>
+        <p>{copy.description}</p>
+        <div className="access-guard__hint">
+          <Monitor size={16} />
+          <span>{copy.note}</span>
+        </div>
+      </section>
+    </main>
+  );
+};
 
 const DashboardPage = lazy(() =>
   import('./pages/HomeMapDonutPage').then((module) => ({ default: module.HomeMapDonutPage })),
@@ -47,9 +146,29 @@ const RoleBoundary = ({ allow, children }: { allow: UserRole[]; children: JSX.El
 
 const ProtectedApp = () => {
   const { user, logout } = useAuth();
+  const [deviceState, setDeviceState] = useState(detectDeviceState);
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  useEffect(() => {
+    const syncDeviceState = () => setDeviceState(detectDeviceState());
+
+    syncDeviceState();
+    window.addEventListener('resize', syncDeviceState);
+
+    return () => {
+      window.removeEventListener('resize', syncDeviceState);
+    };
+  }, []);
+
+  if (BLOCKED_MOBILE_ROLES.includes(user.role) && deviceState.isPhoneDevice) {
+    return <AccessGuardPage variant="phone" />;
+  }
+
+  if (BLOCKED_MOBILE_ROLES.includes(user.role) && deviceState.isDesktopNarrow) {
+    return <AccessGuardPage variant="desktop-narrow" />;
   }
 
   return <AppShell user={user} onLogout={logout} />;

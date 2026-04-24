@@ -219,11 +219,6 @@ const ANALYTICS_COPY: Record<Language, AnalyticsCopy> = {
   },
 };
 
-const ANALYTICS_SUBTITLES: Record<Language, string> = {
-  kk: 'Өтінімдер, мәртебелер және ұйым жүктемесі осы жерде көрінеді.',
-  ru: 'Здесь отображаются обращения, статусы и нагрузка на организации.',
-  en: 'Requests, statuses, and organization workload are shown here.',
-};
 
 const STATUS_ORDER: RequestStatus[] = ['accepted', 'in_progress', 'resolved'];
 const PRIORITY_ORDER: RequestPriority[] = ['high', 'medium', 'low'];
@@ -270,7 +265,6 @@ export const AnalyticsPage = () => {
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
 
   const copy = ANALYTICS_COPY[language];
-  const pageSubtitle = ANALYTICS_SUBTITLES[language];
 
   useEffect(() => {
     let active = true;
@@ -431,12 +425,31 @@ export const AnalyticsPage = () => {
   ];
 
   return (
-    <div className="page analytics-dashboard">
-      <section className="analytics-hero glass-card">
-        <div className="analytics-hero__copy">
-          <p className="analytics-page__subtitle" aria-label={copy.title} title={copy.title}>
-            {pageSubtitle}
-          </p>
+    <div className="page analytics-dashboard admin-surface admin-surface--analytics">
+      <section className="analytics-hero glass-card admin-surface__hero">
+        <div className="analytics-hero__copy admin-surface__hero-copy">
+          <span className="admin-surface__eyebrow">{t('analytics.eyebrow')}</span>
+          <div className="admin-surface__hero-heading">
+            <h1>{t('analytics.title')}</h1>
+            <p className="analytics-page__subtitle" aria-label={copy.title} title={copy.title}>
+              {t('analytics.description')}
+            </p>
+          </div>
+        </div>
+
+        <div className="admin-surface__hero-meta">
+          <span className="admin-surface__metric">
+            <Activity size={14} />
+            {formatCompactNumber(totalRequests)}
+          </span>
+          <span className="admin-surface__metric">
+            <CircleGauge size={14} />
+            {formatPercent(resolvedRate)}
+          </span>
+          <span className="admin-surface__metric">
+            <Building2 size={14} />
+            {activeOrganizationsCount}
+          </span>
         </div>
       </section>
 

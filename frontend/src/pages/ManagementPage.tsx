@@ -1107,15 +1107,34 @@ export const ManagementPage = () => {
   ];
 
   return (
-    <div className="page management-page">
-      <section className="page-header glass-card">
-        <div>
-          <p className="catalog-page__subtitle">{copy.subtitle}</p>
+    <div className="page management-page admin-surface admin-surface--management">
+      <section className="page-header glass-card admin-surface__hero">
+        <div className="admin-surface__hero-copy">
+          <span className="admin-surface__eyebrow">{t('catalog.eyebrow')}</span>
+          <div className="admin-surface__hero-heading">
+            <h1>{t('catalog.title')}</h1>
+            <p className="catalog-page__subtitle">{t('catalog.description')}</p>
+          </div>
+        </div>
+
+        <div className="admin-surface__hero-meta">
+          <span className="admin-surface__metric">
+            <LayoutGrid size={14} />
+            {categories.length}
+          </span>
+          <span className="admin-surface__metric">
+            <Building2 size={14} />
+            {cities.length}
+          </span>
+          <span className="admin-surface__metric">
+            <MapPinned size={14} />
+            {districts.length}
+          </span>
         </div>
       </section>
 
-      <section className="management-toolbar glass-card">
-        <div className="management-toolbar__actions">
+      <section className="management-toolbar glass-card admin-surface__toolbar">
+        <div className="management-toolbar__actions admin-surface__toolbar-row">
           <Button type="button" variant="secondary" className="management-quick-action" onClick={openCreateCategory}>
             <LayoutGrid size={18} />
             <span>{copy.createCategory}</span>
@@ -1130,7 +1149,7 @@ export const ManagementPage = () => {
           </Button>
         </div>
 
-        <div className="management-tabs">
+        <div className="management-tabs admin-surface__segmented">
           {sectionTabs.map((section) => {
             const Icon = section.icon;
 
