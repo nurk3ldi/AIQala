@@ -90,6 +90,7 @@ export interface Comment {
   authorUserId: string | null;
   authorOrganizationId: string | null;
   text: string;
+  source?: 'chat' | 'map' | null;
   createdAt: string;
   authorUser?: AuthUser | null;
   authorOrganization?: Organization | null;

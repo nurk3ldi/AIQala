@@ -1,4 +1,23 @@
-import { Bell, Languages, MapPin, Moon, Sun, UserRound } from 'lucide-react';
+import {
+  BarChart3,
+  Bell,
+  BookOpen,
+  BriefcaseBusiness,
+  Building2,
+  Check,
+  ClipboardList,
+  Home,
+  Languages,
+  MapPin,
+  Menu,
+  MessageCircle,
+  Moon,
+  PlusCircle,
+  Smartphone,
+  Sun,
+  UserRound,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -20,6 +39,7 @@ interface NavigationItem {
   to: string;
   label: string;
   roles: UserRole[];
+  icon: LucideIcon;
 }
 
 export interface AppShellOutletContext {
@@ -29,13 +49,14 @@ export interface AppShellOutletContext {
 }
 
 const navigation: NavigationItem[] = [
-  { to: '/', label: 'layout.nav.home', roles: ['admin', 'organization', 'user'] },
-  { to: '/requests', label: 'layout.nav.requests', roles: ['admin', 'organization', 'user'] },
-  { to: '/requests/new', label: 'layout.nav.create', roles: ['user'] },
-  { to: '/organization', label: 'layout.nav.workspace', roles: ['organization'] },
-  { to: '/organizations', label: 'layout.nav.organizations', roles: ['admin'] },
-  { to: '/catalog', label: 'layout.nav.catalog', roles: ['admin'] },
-  { to: '/analytics', label: 'layout.nav.analytics', roles: ['admin'] },
+  { to: '/', label: 'layout.nav.home', roles: ['admin', 'organization', 'user'], icon: Home },
+  { to: '/requests', label: 'layout.nav.requests', roles: ['admin', 'organization', 'user'], icon: ClipboardList },
+  { to: '/requests/new', label: 'layout.nav.create', roles: ['user'], icon: PlusCircle },
+  { to: '/chat', label: 'Чат', roles: ['organization', 'user'], icon: MessageCircle },
+  { to: '/organization', label: 'layout.nav.workspace', roles: ['organization'], icon: BriefcaseBusiness },
+  { to: '/organizations', label: 'layout.nav.organizations', roles: ['admin'], icon: Building2 },
+  { to: '/catalog', label: 'layout.nav.catalog', roles: ['admin'], icon: BookOpen },
+  { to: '/analytics', label: 'layout.nav.analytics', roles: ['admin'], icon: BarChart3 },
 ];
 
 export const AppShell = ({ user, onLogout: _onLogout }: AppShellProps) => {
@@ -55,8 +76,10 @@ export const AppShell = ({ user, onLogout: _onLogout }: AppShellProps) => {
   });
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const [isCityMenuOpen, setIsCityMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement | null>(null);
   const cityMenuRef = useRef<HTMLDivElement | null>(null);
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const availableNavigation = useMemo(
     () => navigation.filter((item) => item.roles.includes(user.role)),
@@ -144,6 +167,10 @@ export const AppShell = ({ user, onLogout: _onLogout }: AppShellProps) => {
       if (cityMenuRef.current && target && !cityMenuRef.current.contains(target)) {
         setIsCityMenuOpen(false);
       }
+
+      if (mobileMenuRef.current && target && !mobileMenuRef.current.contains(target)) {
+        setIsMobileMenuOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handlePointerDown);
@@ -156,7 +183,10 @@ export const AppShell = ({ user, onLogout: _onLogout }: AppShellProps) => {
   useEffect(() => {
     setIsLanguageMenuOpen(false);
     setIsCityMenuOpen(false);
+    setIsMobileMenuOpen(false);
   }, [location.pathname]);
+
+  const getNavigationLabel = (item: NavigationItem) => (item.label.includes('.') ? t(item.label) : item.label);
 
   const isNavItemActive = (path: string) => {
     if (path === '/') {
@@ -193,14 +223,14 @@ export const AppShell = ({ user, onLogout: _onLogout }: AppShellProps) => {
                 end={item.to === '/'}
                 className={() => `app-header__link ${isNavItemActive(item.to) ? 'app-header__link--active' : ''}`}
               >
-                {item.label.includes('.') ? t(item.label) : item.label}
+                {getNavigationLabel(item)}
               </NavLink>
             ))}
           </nav>
         </div>
 
         <div className="app-header__right">
-          <div className="app-header__menu-wrap" ref={languageMenuRef}>
+          <div className="app-header__menu-wrap app-header__desktop-control" ref={languageMenuRef}>
             <button
               type="button"
               className={`app-header__icon-button ${isLanguageMenuOpen ? 'app-header__icon-button--active' : ''}`}
@@ -230,7 +260,7 @@ export const AppShell = ({ user, onLogout: _onLogout }: AppShellProps) => {
             ) : null}
           </div>
 
-          <div className="app-header__menu-wrap" ref={cityMenuRef}>
+          <div className="app-header__menu-wrap app-header__desktop-control" ref={cityMenuRef}>
             <button
               type="button"
               className={`app-header__icon-button ${isCityMenuOpen ? 'app-header__icon-button--active' : ''}`}
@@ -272,7 +302,7 @@ export const AppShell = ({ user, onLogout: _onLogout }: AppShellProps) => {
 
           <button
             type="button"
-            className="app-header__icon-button"
+            className="app-header__icon-button app-header__desktop-control"
             onClick={toggleTheme}
             aria-label={theme === 'dark' ? t('layout.switchToLight') : t('layout.switchToDark')}
             title={theme === 'dark' ? t('layout.switchToLight') : t('layout.switchToDark')}
@@ -289,9 +319,96 @@ export const AppShell = ({ user, onLogout: _onLogout }: AppShellProps) => {
             <Bell size={18} />
           </NavLink>
 
+          <div className="app-header__menu-wrap app-header__mobile-menu-wrap" ref={mobileMenuRef}>
+            <button
+              type="button"
+              className={`app-header__icon-button ${isMobileMenuOpen ? 'app-header__icon-button--active' : ''}`}
+              aria-label="Меню"
+              title="Меню"
+              onClick={() => setIsMobileMenuOpen((current) => !current)}
+            >
+              <Menu size={19} />
+            </button>
+
+            {isMobileMenuOpen ? (
+              <div className="app-header__menu app-header__menu--right app-header__mobile-menu">
+                <div className="app-header__mobile-menu-section">
+                  <span className="app-header__mobile-menu-title">
+                    <Languages size={15} />
+                    {t('layout.changeLanguage')}
+                  </span>
+                  {LANGUAGE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`app-header__menu-item app-header__mobile-option ${language === option.value ? 'app-header__menu-item--active' : ''}`}
+                      onClick={() => {
+                        setLanguage(option.value);
+                        setIsMobileMenuOpen(false);
+                      }}
+                    >
+                      <span>{option.label}</span>
+                      {language === option.value ? <Check size={15} /> : null}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="app-header__mobile-menu-section">
+                  <span className="app-header__mobile-menu-title">
+                    <MapPin size={15} />
+                    {t('layout.selectCity')}
+                  </span>
+                  <button
+                    type="button"
+                    className={`app-header__menu-item app-header__mobile-option ${selectedCityId === null ? 'app-header__menu-item--active' : ''}`}
+                    onClick={() => {
+                      setSelectedCityId(null);
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    <span>{t('common.allCities')}</span>
+                    {selectedCityId === null ? <Check size={15} /> : null}
+                  </button>
+                  {cities.map((city) => (
+                    <button
+                      key={city.id}
+                      type="button"
+                      className={`app-header__menu-item app-header__mobile-option ${selectedCityId === city.id ? 'app-header__menu-item--active' : ''}`}
+                      onClick={() => {
+                        setSelectedCityId(city.id);
+                        setIsMobileMenuOpen(false);
+                      }}
+                    >
+                      <span>{city.name}</span>
+                      {selectedCityId === city.id ? <Check size={15} /> : null}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="app-header__mobile-menu-section">
+                  <span className="app-header__mobile-menu-title">
+                    <Smartphone size={15} />
+                    {theme === 'dark' ? t('layout.darkMode') : t('layout.lightMode')}
+                  </span>
+                  <button
+                    type="button"
+                    className="app-header__menu-item app-header__mobile-option"
+                    onClick={() => {
+                      toggleTheme();
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    <span>{theme === 'dark' ? t('layout.switchToLight') : t('layout.switchToDark')}</span>
+                    {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
           <NavLink
             to="/profile"
-            className={() => `app-header__profile ${isNavItemActive('/profile') ? 'app-header__profile--active' : ''}`}
+            className={() => `app-header__profile app-header__desktop-profile ${isNavItemActive('/profile') ? 'app-header__profile--active' : ''}`}
             aria-label={t('layout.nav.profile')}
             title={t('layout.nav.profile')}
           >
@@ -305,6 +422,41 @@ export const AppShell = ({ user, onLogout: _onLogout }: AppShellProps) => {
           </NavLink>
         </div>
       </header>
+
+      <nav className="app-bottom-nav" aria-label="Mobile navigation">
+        {availableNavigation.map((item) => {
+          const Icon = item.icon;
+          const label = getNavigationLabel(item);
+
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/'}
+              className={() => `app-bottom-nav__link ${isNavItemActive(item.to) ? 'app-bottom-nav__link--active' : ''}`}
+              aria-label={label}
+              title={label}
+            >
+              <Icon size={21} />
+            </NavLink>
+          );
+        })}
+
+        <NavLink
+          to="/profile"
+          className={() => `app-bottom-nav__profile ${isNavItemActive('/profile') ? 'app-bottom-nav__profile--active' : ''}`}
+          aria-label={t('layout.nav.profile')}
+          title={t('layout.nav.profile')}
+        >
+          {user.avatarUrl ? (
+            <img src={resolveFileUrl(user.avatarUrl)} alt={user.fullName} className="app-bottom-nav__avatar-image" />
+          ) : (
+            <span className="app-bottom-nav__avatar-fallback">
+              {initials || <UserRound size={18} />}
+            </span>
+          )}
+        </NavLink>
+      </nav>
 
       <main className="shell__main">
         <Outlet

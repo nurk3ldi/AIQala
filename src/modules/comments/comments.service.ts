@@ -3,21 +3,23 @@ import { CommentsRepository } from './comments.repository';
 export class CommentsService {
   constructor(private readonly commentsRepository: CommentsRepository) {}
 
-  createOrganizationComment(requestId: string, organizationId: string, text: string) {
+  createOrganizationComment(requestId: string, organizationId: string, text: string, source: 'chat' | 'map' = 'chat') {
     return this.commentsRepository.create({
       requestId,
       authorOrganizationId: organizationId,
       authorUserId: null,
       text,
+      source,
     });
   }
 
-  createUserComment(requestId: string, userId: string, text: string) {
+  createUserComment(requestId: string, userId: string, text: string, source: 'chat' | 'map' = 'chat') {
     return this.commentsRepository.create({
       requestId,
       authorOrganizationId: null,
       authorUserId: userId,
       text,
+      source,
     });
   }
 

@@ -14,6 +14,7 @@ export class CommentModel extends Model<InferAttributes<CommentModel>, InferCrea
   declare authorUserId: ForeignKey<string> | null;
   declare authorOrganizationId: ForeignKey<string> | null;
   declare text: string;
+  declare source: CreationOptional<'chat' | 'map' | null>;
   declare createdAt: CreationOptional<Date>;
 
   static initialize(sequelize: Sequelize): void {
@@ -55,6 +56,10 @@ export class CommentModel extends Model<InferAttributes<CommentModel>, InferCrea
         text: {
           type: DataTypes.TEXT,
           allowNull: false,
+        },
+        source: {
+          type: DataTypes.STRING(20),
+          allowNull: true,
         },
         createdAt: {
           type: DataTypes.DATE,

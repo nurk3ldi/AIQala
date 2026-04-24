@@ -403,9 +403,10 @@ export const HomeMapDonutPage = () => {
     setCommentBusy(true);
 
     try {
-      const comment = await api.requests.addComment(activeIssue.id, nextText);
+      const comment = await api.requests.addComment(activeIssue.id, nextText, 'map');
       const nextComment = {
         ...comment,
+        source: 'map' as const,
         authorUser: comment.authorUser ?? user,
         authorOrganization:
           comment.authorOrganization ??
@@ -742,9 +743,11 @@ export const HomeMapDonutPage = () => {
 
                     {activeIssueTab === 'comments' ? (
                       <div className="home-minimal__detail-comments-wrap">
-                        {activeIssue.comments?.length ? (
+                        {activeIssue.comments?.filter((comment) => comment.source !== 'chat').length ? (
                           <div className="home-minimal__detail-comments">
-                            {activeIssue.comments.map((comment) => {
+                            {activeIssue.comments
+                              .filter((comment) => comment.source !== 'chat')
+                              .map((comment) => {
                               const authorName = comment.authorOrganization?.name ?? comment.authorUser?.fullName ?? t('common.unknown');
                               const authorInitial = authorName.trim().charAt(0).toUpperCase() || '?';
                               const authorAvatar = comment.authorUser?.avatarUrl ?? comment.authorOrganization?.logoUrl ?? null;

@@ -68,6 +68,7 @@ const dictionaries: Record<Language, TranslationDictionary> = {
       moderation: 'Модерация',
       analysis: 'Талдау',
       preview: 'Алдын ала қарау',
+      back: 'Артқа',
     },
     app: {
       routeLoading: 'Бет ашылып жатыр...',
@@ -493,6 +494,7 @@ const dictionaries: Record<Language, TranslationDictionary> = {
       moderation: 'Модерация',
       analysis: 'Анализ',
       preview: 'Предпросмотр',
+      back: 'Назад',
     },
     app: { routeLoading: 'Страница открывается...', bootLoading: 'Приложение подготавливается...' },
     layout: {
@@ -915,6 +917,7 @@ const dictionaries: Record<Language, TranslationDictionary> = {
       moderation: 'Moderation',
       analysis: 'Analysis',
       preview: 'Preview',
+      back: 'Back',
     },
     app: { routeLoading: 'Opening page...', bootLoading: 'Preparing application...' },
     layout: {

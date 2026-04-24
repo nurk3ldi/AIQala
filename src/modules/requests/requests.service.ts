@@ -265,6 +265,7 @@ export class RequestsService {
 
   async addComment(currentUser: AuthenticatedUser, id: string, payload: CreateCommentDto) {
     const request = await this.requestsRepository.findByIdPlain(id);
+    const source = payload.source ?? 'chat';
 
     if (!request) {
       throw new AppError(404, 'REQUEST_NOT_FOUND', 'Request not found');
@@ -275,6 +276,7 @@ export class RequestsService {
         id,
         currentUser.id,
         payload.text.trim(),
+        source,
       );
     }
 
@@ -294,6 +296,7 @@ export class RequestsService {
       id,
       currentUser.organizationId!,
       (moderation?.sanitizedText ?? payload.text).trim(),
+      source,
     );
 
     await this.notificationsService.createNotification({

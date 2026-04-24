@@ -117,6 +117,10 @@ export class CreateCommentDto {
   @IsString()
   @Length(1, 2000)
   text!: string;
+
+  @IsOptional()
+  @IsIn(['chat', 'map'])
+  source?: 'chat' | 'map';
 }
 
 export class UpdateCommentDto {

@@ -20,6 +20,7 @@ const RequestDetailPage = lazy(() =>
 const NotificationsPage = lazy(() =>
   import('./pages/NotificationsPage').then((module) => ({ default: module.NotificationsPage })),
 );
+const ChatPage = lazy(() => import('./pages/ChatPage').then((module) => ({ default: module.ChatPage })));
 const ProfilePage = lazy(() =>
   import('./pages/ProfileSummaryPage').then((module) => ({ default: module.ProfileSummaryPage })),
 );
@@ -85,6 +86,14 @@ const App = () => {
             />
             <Route path="/requests/:id" element={<RequestDetailPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
+            <Route
+              path="/chat"
+              element={
+                <RoleBoundary allow={['organization', 'user']}>
+                  <ChatPage />
+                </RoleBoundary>
+              }
+            />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/ai" element={<AiStudioPage />} />
             <Route

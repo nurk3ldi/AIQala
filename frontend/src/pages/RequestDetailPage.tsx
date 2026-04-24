@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, MessageCircle, Pencil, Trash2, X } from 'lucide-react';
 import { CircleMarker, MapContainer, TileLayer, useMap } from 'react-leaflet';
 
 import 'leaflet/dist/leaflet.css';
@@ -462,7 +462,7 @@ export const RequestDetailPage = () => {
   const requestPhotosEmpty = t('requestDetail.mediaEmptyDescription');
   const organizationPhotosEmpty = t('requestDetail.mediaEmptyDescription');
   const organizationPhotoAlt = t('requestDetail.mediaTitle');
-  const backToRequestsText = t('requestForm.back');
+  const backToRequestsText = t('common.back');
   const requestPhotoAlt = t('requestDetail.mediaTitle');
   const canUseDiscussionComposer = user?.role === 'user' || user?.role === 'organization';
   const currentUserInitial = (user?.fullName?.trim().charAt(0) || 'U').toUpperCase();
@@ -479,6 +479,17 @@ export const RequestDetailPage = () => {
           </div>
         </div>
         <div className="page-header__actions">
+          {canUseDiscussionComposer ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="request-detail-minimal__back-button"
+              onClick={() => navigate(`/chat?request=${request.id}`)}
+            >
+              <MessageCircle size={15} />
+              Чат
+            </Button>
+          ) : null}
           <Button type="button" variant="secondary" className="request-detail-minimal__back-button" onClick={() => navigate('/requests')}>
             <ArrowLeft size={15} />
             {backToRequestsText}

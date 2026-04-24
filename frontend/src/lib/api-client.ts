@@ -411,10 +411,10 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       }),
-    addComment: (id: string, text: string) =>
+    addComment: (id: string, text: string, source: 'chat' | 'map' = 'chat') =>
       request<Comment>(`/requests/${id}/comment`, {
         method: 'POST',
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, source }),
       }),
     updateComment: (id: string, commentId: string, text: string) =>
       request<Comment>(`/requests/${id}/comments/${commentId}`, {

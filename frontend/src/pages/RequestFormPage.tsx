@@ -89,6 +89,10 @@ const CREATE_PAGE_COPY = {
     openPhoto: 'Толық ашу',
     closePhoto: 'Жабу',
     photoIndex: 'Фото {current}/{total}',
+    confirmPoint: 'Нүктені растау',
+    pointSelected: 'Таңдалды: {latitude}, {longitude}',
+    pointPending: 'Алдымен картадан нүктені таңдаңыз.',
+    confirmSelectedPoint: 'Картадан таңдалған нүктені растау батырмасымен бекітіңіз.',
     invalidPhotoType: 'Тек JPG, PNG, WEBP форматтары қолданылады.',
     photoLimit: 'Бір өтінімге максимум 3 фото қосылады.',
     coordsInvalid: 'Координатаны дұрыс енгізіңіз.',
@@ -116,6 +120,10 @@ const CREATE_PAGE_COPY = {
     openPhoto: 'Открыть полностью',
     closePhoto: 'Закрыть',
     photoIndex: 'Фото {current}/{total}',
+    confirmPoint: 'Подтвердить точку',
+    pointSelected: 'Выбрано: {latitude}, {longitude}',
+    pointPending: 'Сначала выберите точку на карте.',
+    confirmSelectedPoint: 'Подтвердите выбранную на карте точку кнопкой подтверждения.',
     invalidPhotoType: 'Поддерживаются только JPG, PNG, WEBP.',
     photoLimit: 'Максимум 3 фото для одной заявки.',
     coordsInvalid: 'Проверьте корректность координат.',
@@ -143,6 +151,10 @@ const CREATE_PAGE_COPY = {
     openPhoto: 'Open full size',
     closePhoto: 'Close',
     photoIndex: 'Photo {current}/{total}',
+    confirmPoint: 'Confirm point',
+    pointSelected: 'Selected: {latitude}, {longitude}',
+    pointPending: 'Select a point on the map first.',
+    confirmSelectedPoint: 'Confirm the point selected on the map before submitting.',
     invalidPhotoType: 'Only JPG, PNG, WEBP files are supported.',
     photoLimit: 'Maximum 3 photos per request.',
     coordsInvalid: 'Please check coordinate values.',
@@ -169,6 +181,10 @@ export const RequestFormPage = () => {
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
+  const [pendingCreateCoordinates, setPendingCreateCoordinates] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -297,7 +313,8 @@ export const RequestFormPage = () => {
     form.description.trim().length >= 10 &&
     Boolean(form.categoryId) &&
     Boolean(form.cityId) &&
-    hasValidCoordinates;
+    hasValidCoordinates &&
+    !pendingCreateCoordinates;
 
   const currentPhotoIndex = photos.length > 0 ? Math.min(activePhotoIndex, photos.length - 1) : 0;
   const currentPhotoUrl = photos.length > 0 ? photoUrls[currentPhotoIndex] : null;
@@ -305,6 +322,11 @@ export const RequestFormPage = () => {
   const currentPhotoCounter = copy.photoIndex
     .replace('{current}', String(photos.length > 0 ? currentPhotoIndex + 1 : 0))
     .replace('{total}', String(photos.length));
+  const mapSelectionPendingText = pendingCreateCoordinates
+    ? copy.pointSelected
+        .replace('{latitude}', pendingCreateCoordinates.latitude.toFixed(6))
+        .replace('{longitude}', pendingCreateCoordinates.longitude.toFixed(6))
+    : copy.pointPending;
 
   useEffect(() => {
     if (photos.length === 0) {
@@ -319,6 +341,7 @@ export const RequestFormPage = () => {
   const handleCityChange = (cityId: string) => {
     const city = cities.find((item) => item.id === cityId) ?? null;
 
+    setPendingCreateCoordinates(null);
     setForm((current) => ({
       ...current,
       cityId,
@@ -375,8 +398,30 @@ export const RequestFormPage = () => {
     });
   };
 
+  const confirmMapSelection = () => {
+    if (!pendingCreateCoordinates) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      latitude: pendingCreateCoordinates.latitude.toFixed(6),
+      longitude: pendingCreateCoordinates.longitude.toFixed(6),
+    }));
+    setPendingCreateCoordinates(null);
+  };
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (pendingCreateCoordinates) {
+      pushToast({
+        tone: 'error',
+        title: copy.location,
+        description: copy.confirmSelectedPoint,
+      });
+      return;
+    }
 
     if (!canSubmit) {
       pushToast({
@@ -540,13 +585,7 @@ export const RequestFormPage = () => {
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <CreateMapViewportSync latitude={mapCenterLatitude} longitude={mapCenterLongitude} />
               <CreateMapCoordinateEvents
-                onSelect={(latitude, longitude) =>
-                  setForm((current) => ({
-                    ...current,
-                    latitude: latitude.toFixed(6),
-                    longitude: longitude.toFixed(6),
-                  }))
-                }
+                onSelect={(latitude, longitude) => setPendingCreateCoordinates({ latitude, longitude })}
               />
               {hasValidCoordinates ? (
                 <CircleMarker
@@ -560,7 +599,38 @@ export const RequestFormPage = () => {
                   }}
                 />
               ) : null}
+              {pendingCreateCoordinates ? (
+                <>
+                  <CircleMarker
+                    center={[pendingCreateCoordinates.latitude, pendingCreateCoordinates.longitude]}
+                    radius={11}
+                    pathOptions={{
+                      color: '#ffffff',
+                      weight: 2,
+                      fillColor: 'transparent',
+                      fillOpacity: 0,
+                      dashArray: '4 4',
+                    }}
+                  />
+                  <CircleMarker
+                    center={[pendingCreateCoordinates.latitude, pendingCreateCoordinates.longitude]}
+                    radius={5}
+                    pathOptions={{
+                      color: '#facc15',
+                      weight: 2,
+                      fillColor: '#0f172a',
+                      fillOpacity: 0.95,
+                    }}
+                  />
+                </>
+              ) : null}
             </MapContainer>
+          </div>
+          <div className="request-create-minimal__map-actions">
+            <span className="request-create-minimal__map-selection">{mapSelectionPendingText}</span>
+            <Button type="button" variant="secondary" onClick={confirmMapSelection} disabled={!pendingCreateCoordinates}>
+              {copy.confirmPoint}
+            </Button>
           </div>
         </section>
 
