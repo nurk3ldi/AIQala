@@ -1028,8 +1028,7 @@ export const OrganizationsPage = () => {
     <div className="page organizations-page admin-surface admin-surface--organizations">
       <section className="page-header glass-card admin-surface__hero organizations-minimal__hero">
         <div className="organizations-minimal__hero-copy">
-          <strong>{t('organizations.title')}</strong>
-          <p className="organizations-page__subtitle">{t('organizations.description')}</p>
+          <strong>Ұйымдарды басқару</strong>
         </div>
 
         <div className="organizations-minimal__hero-actions">

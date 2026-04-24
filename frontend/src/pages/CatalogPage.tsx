@@ -13,7 +13,7 @@ import type { Category, City, District, Organization } from '../types/api';
 const MANAGEMENT_LABELS: Record<'kk' | 'ru' | 'en', string> = {
   kk: 'Басқару',
   ru: 'Управление',
-  en: 'Management',
+  en: 'Catalog',
 };
 
 const MANAGEMENT_DESCRIPTIONS: Record<'kk' | 'ru' | 'en', string> = {
@@ -37,8 +37,13 @@ export const CatalogPage = () => {
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<District | null>(null);
   const [bindForm, setBindForm] = useState({ categoryId: '', organizationId: '' });
-  const pageTitle = MANAGEMENT_LABELS[language];
-  const pageDescription = MANAGEMENT_DESCRIPTIONS[language];
+  const pageTitle = language === 'kk' ? 'Анықтамалық' : language === 'ru' ? 'Справочник' : MANAGEMENT_LABELS[language];
+  const pageDescription =
+    language === 'kk'
+      ? 'Санаттар, қалалар, аудандар және ұйым байланыстарын бір жерден басқарыңыз.'
+      : language === 'ru'
+        ? 'Управляйте категориями, городами, районами и связями организаций в одном месте.'
+        : MANAGEMENT_DESCRIPTIONS[language];
 
   const refresh = async () => {
     const [categoryResult, cityResult, districtResult, organizationResult] = await Promise.all([
@@ -143,12 +148,16 @@ export const CatalogPage = () => {
   }
 
   return (
-    <div className="page">
+    <div className="page catalog-minimal">
       <section className="page-header glass-card">
-        <div>
+        <div className="catalog-minimal__hero-copy">
+          <strong>{pageTitle}</strong>
           <p className="catalog-page__subtitle" aria-label={pageTitle} title={pageTitle}>
             {pageDescription}
           </p>
+        </div>
+        <div className="catalog-minimal__hero-actions">
+          <span className="catalog-minimal__hero-count">{categories.length + cities.length + districts.length}</span>
         </div>
       </section>
 

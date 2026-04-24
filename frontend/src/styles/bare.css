@@ -2780,6 +2780,240 @@ button:disabled {
   color: #93c5fd;
 }
 
+.catalog-minimal {
+  position: relative;
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  background: linear-gradient(180deg, #0b0b0c 0%, #050505 68%, #020202 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  color: #f9fafb;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.catalog-minimal::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -18rem;
+  width: min(74rem, 128%);
+  height: 34rem;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.26) 0%,
+    rgba(255, 255, 255, 0.14) 18%,
+    rgba(255, 255, 255, 0.06) 36%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  filter: blur(16px);
+  pointer-events: none;
+}
+
+.catalog-minimal::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 20%, rgba(255, 255, 255, 0) 42%);
+  pointer-events: none;
+}
+
+.catalog-minimal > * {
+  position: relative;
+  z-index: 1;
+}
+
+.catalog-minimal .page-header,
+.catalog-minimal .panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.catalog-minimal .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.95rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.catalog-minimal__hero-copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.catalog-minimal__hero-copy strong {
+  color: #ffffff;
+  font-size: 1.4rem;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.catalog-minimal .catalog-page__subtitle {
+  color: rgba(226, 232, 240, 0.7);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.catalog-minimal__hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.catalog-minimal__hero-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3rem;
+  min-height: 2rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(249, 250, 251, 0.88);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.catalog-minimal .split-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.85fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.catalog-minimal .split-layout > .page {
+  gap: 1.15rem;
+}
+
+.catalog-minimal .panel {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.catalog-minimal .split-layout > .page > .panel:first-child {
+  padding-top: 0;
+}
+
+.catalog-minimal .split-layout > .page > .panel:last-child {
+  border-bottom: 0;
+}
+
+.catalog-minimal .panel__header {
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.catalog-minimal .panel__header h3 {
+  color: #ffffff;
+  font-size: 1.02rem;
+}
+
+.catalog-minimal .field__label {
+  color: rgba(249, 250, 251, 0.72);
+}
+
+.catalog-minimal .input {
+  min-height: 3rem;
+  border-radius: 18px;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f9fafb;
+}
+
+.catalog-minimal .textarea {
+  min-height: 8.5rem;
+}
+
+.catalog-minimal .input::placeholder {
+  color: rgba(249, 250, 251, 0.38);
+}
+
+.catalog-minimal .input:focus {
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.catalog-minimal select.input {
+  color-scheme: dark;
+}
+
+.catalog-minimal select.input option {
+  color: #f8fafc;
+  background: #0f1117;
+}
+
+.catalog-minimal .button--primary,
+.catalog-minimal form > .button {
+  border-color: #ffffff;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.catalog-minimal .button--ghost,
+.catalog-minimal .button--secondary {
+  border-color: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f9fafb;
+}
+
+.catalog-minimal .button--danger {
+  border-color: rgba(248, 113, 113, 0.72);
+  border-radius: 999px;
+  background: rgba(248, 113, 113, 0.08);
+  color: #f87171;
+}
+
+.catalog-minimal .list {
+  gap: 0;
+}
+
+.catalog-minimal .record-card {
+  padding: 0.9rem 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.catalog-minimal .record-card:last-child {
+  border-bottom: 0;
+}
+
+.catalog-minimal .record-card__title h4 {
+  color: #ffffff;
+}
+
+.catalog-minimal .muted-text,
+.catalog-minimal .empty-state p {
+  color: rgba(226, 232, 240, 0.7);
+}
+
+.catalog-minimal .empty-state {
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.catalog-minimal .empty-state h3 {
+  color: #ffffff;
+}
+
 .requests-filter-modal {
   background: linear-gradient(180deg, #0f1115 0%, #090b0f 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -9471,6 +9705,8 @@ button:disabled {
 .organizations-page.admin-surface--organizations .organizations-minimal__search {
   flex: 1 1 auto;
   min-width: 0;
+  width: 100%;
+  max-width: none;
 }
 
 .organizations-page.admin-surface--organizations .organizations-minimal__filter-button.button--secondary {
@@ -9500,6 +9736,684 @@ button:disabled {
 
   .organizations-page.admin-surface--organizations .organizations-minimal__filter-button.button--secondary {
     width: auto;
+  }
+}
+
+.organizations-page.admin-surface--organizations,
+:root[data-theme='light'] .organizations-page.admin-surface--organizations {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  background: linear-gradient(180deg, #0b0b0c 0%, #050505 68%, #020202 100%);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.organizations-page.admin-surface--organizations::before,
+:root[data-theme='light'] .organizations-page.admin-surface--organizations::before {
+  left: 50%;
+  top: -18rem;
+  width: min(74rem, 128%);
+  height: 34rem;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.26) 0%,
+    rgba(255, 255, 255, 0.14) 18%,
+    rgba(255, 255, 255, 0.06) 36%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  filter: blur(16px);
+  opacity: 1;
+}
+
+.organizations-page.admin-surface--organizations::after,
+:root[data-theme='light'] .organizations-page.admin-surface--organizations::after {
+  inset: 0;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 20%, rgba(255, 255, 255, 0) 42%);
+  filter: none;
+  opacity: 1;
+}
+
+.organizations-page.admin-surface--organizations .organizations-minimal__list {
+  margin-top: 0.1rem;
+  padding-top: 0.95rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.management-page.admin-surface--management,
+:root[data-theme='light'] .management-page.admin-surface--management {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  background: linear-gradient(180deg, #0b0b0c 0%, #050505 68%, #020202 100%);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  color: #f9fafb;
+}
+
+.management-page.admin-surface--management::before,
+:root[data-theme='light'] .management-page.admin-surface--management::before {
+  left: 50%;
+  top: -18rem;
+  width: min(74rem, 128%);
+  height: 34rem;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.26) 0%,
+    rgba(255, 255, 255, 0.14) 18%,
+    rgba(255, 255, 255, 0.06) 36%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  filter: blur(16px);
+  opacity: 1;
+}
+
+.management-page.admin-surface--management::after,
+:root[data-theme='light'] .management-page.admin-surface--management::after {
+  inset: 0;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 20%, rgba(255, 255, 255, 0) 42%);
+  filter: none;
+  opacity: 1;
+}
+
+.management-page.admin-surface--management .admin-surface__hero,
+.management-page.admin-surface--management .admin-surface__toolbar,
+:root[data-theme='light'] .management-page.admin-surface--management .admin-surface__hero,
+:root[data-theme='light'] .management-page.admin-surface--management .admin-surface__toolbar {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.management-page.admin-surface--management .admin-surface__hero {
+  padding-bottom: 0.95rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.management-page.admin-surface--management .admin-surface__hero-heading h1,
+.management-page.admin-surface--management .management-card__copy strong,
+.management-page.admin-surface--management .management-card__copy h3,
+:root[data-theme='light'] .management-page.admin-surface--management .admin-surface__hero-heading h1,
+:root[data-theme='light'] .management-page.admin-surface--management .management-card__copy strong,
+:root[data-theme='light'] .management-page.admin-surface--management .management-card__copy h3 {
+  color: #ffffff;
+}
+
+.management-page.admin-surface--management .admin-surface__hero-heading p,
+.management-page.admin-surface--management .catalog-page__subtitle,
+.management-page.admin-surface--management .management-card__copy p,
+.management-page.admin-surface--management .management-tab__copy span,
+.management-page.admin-surface--management .management-card__meta,
+:root[data-theme='light'] .management-page.admin-surface--management .admin-surface__hero-heading p,
+:root[data-theme='light'] .management-page.admin-surface--management .catalog-page__subtitle,
+:root[data-theme='light'] .management-page.admin-surface--management .management-card__copy p,
+:root[data-theme='light'] .management-page.admin-surface--management .management-tab__copy span,
+:root[data-theme='light'] .management-page.admin-surface--management .management-card__meta {
+  color: rgba(226, 232, 240, 0.7);
+}
+
+.management-page.admin-surface--management .admin-surface__eyebrow,
+.management-page.admin-surface--management .admin-surface__metric,
+.management-page.admin-surface--management .management-quick-action,
+.management-page.admin-surface--management .management-tab,
+.management-page.admin-surface--management .management-chip,
+.management-page.admin-surface--management .management-icon-button,
+:root[data-theme='light'] .management-page.admin-surface--management .admin-surface__eyebrow,
+:root[data-theme='light'] .management-page.admin-surface--management .admin-surface__metric,
+:root[data-theme='light'] .management-page.admin-surface--management .management-quick-action,
+:root[data-theme='light'] .management-page.admin-surface--management .management-tab,
+:root[data-theme='light'] .management-page.admin-surface--management .management-chip,
+:root[data-theme='light'] .management-page.admin-surface--management .management-icon-button {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+.management-page.admin-surface--management .management-tab--active,
+:root[data-theme='light'] .management-page.admin-surface--management .management-tab--active {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.management-page.admin-surface--management .management-card,
+:root[data-theme='light'] .management-page.admin-surface--management .management-card {
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.management-page.admin-surface--management .management-card:hover,
+:root[data-theme='light'] .management-page.admin-surface--management .management-card:hover {
+  background: transparent;
+  transform: none;
+}
+
+.management-page.admin-surface--management .management-card__glyph,
+:root[data-theme='light'] .management-page.admin-surface--management .management-card__glyph {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
+}
+
+.management-page.admin-surface--management .management-card__identity,
+:root[data-theme='light'] .management-page.admin-surface--management .management-card__identity {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.management-page.admin-surface--management .management-card__copy,
+:root[data-theme='light'] .management-page.admin-surface--management .management-card__copy {
+  min-width: 0;
+}
+
+.management-page.admin-surface--management .management-card__inline-bindings,
+:root[data-theme='light'] .management-page.admin-surface--management .management-card__inline-bindings {
+  display: inline-flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.management-page.admin-surface--management .management-toolbar,
+:root[data-theme='light'] .management-page.admin-surface--management .management-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.management-page.admin-surface--management .management-toolbar__actions,
+:root[data-theme='light'] .management-page.admin-surface--management .management-toolbar__actions {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.management-page.admin-surface--management .management-toolbar__button-row,
+:root[data-theme='light'] .management-page.admin-surface--management .management-toolbar__button-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  grid-template-columns: none;
+  width: 100%;
+  flex-wrap: nowrap;
+}
+
+.management-page.admin-surface--management .management-quick-action,
+.management-page.admin-surface--management .management-tab,
+:root[data-theme='light'] .management-page.admin-surface--management .management-quick-action,
+:root[data-theme='light'] .management-page.admin-surface--management .management-tab {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  min-height: 3.65rem;
+  justify-content: center;
+  padding: 0.9rem 1rem;
+  font-size: 1rem;
+}
+
+.management-page.admin-surface--management .management-tab {
+  min-width: 0;
+}
+
+.management-page.admin-surface--management .management-search,
+:root[data-theme='light'] .management-page.admin-surface--management .management-search {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 0.1rem;
+}
+
+.management-page.admin-surface--management .management-search__field,
+:root[data-theme='light'] .management-page.admin-surface--management .management-search__field {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 3.05rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(248, 250, 252, 0.82);
+}
+
+.management-page.admin-surface--management .management-search__field input,
+:root[data-theme='light'] .management-page.admin-surface--management .management-search__field input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f8fafc;
+  font: inherit;
+}
+
+.management-page.admin-surface--management .management-search__field input::placeholder,
+:root[data-theme='light'] .management-page.admin-surface--management .management-search__field input::placeholder {
+  color: rgba(226, 232, 240, 0.58);
+}
+
+.management-page.admin-surface--management .management-search__button,
+:root[data-theme='light'] .management-page.admin-surface--management .management-search__button {
+  flex: 0 0 10rem;
+  min-height: 3.05rem;
+  justify-content: center;
+  border-radius: 18px;
+}
+
+.management-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 2rem !important;
+  z-index: 5000;
+}
+
+.management-modal .profile-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.68);
+  backdrop-filter: blur(14px);
+}
+
+.management-modal .management-modal__card {
+  width: min(100%, 38rem);
+  max-height: calc(100vh - 4rem);
+  overflow: auto;
+}
+
+.management-modal .management-modal__card--confirm {
+  width: min(100%, 24rem);
+  padding: 2.35rem 1.5rem 1.35rem;
+  overflow: hidden;
+}
+
+.management-modal .management-modal__card--confirm .management-confirm__close {
+  position: absolute;
+  top: 1.6rem;
+  right: 1.35rem;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.management-modal .management-confirm--modal {
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+  width: 100%;
+}
+
+.management-modal .management-confirm__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.65rem;
+  height: 3.65rem;
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.26), rgba(127, 29, 29, 0.34));
+  color: #f87171;
+}
+
+.management-modal .management-confirm__icon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  stroke-width: 2.5;
+}
+
+.management-modal .management-confirm__copy {
+  justify-items: center;
+  gap: 0.45rem;
+  text-align: center;
+}
+
+.management-modal .management-confirm__copy h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(1.45rem, 3vw, 1.7rem);
+  line-height: 1;
+  letter-spacing: -0.06em;
+}
+
+.management-modal .management-confirm__copy p {
+  margin: 0;
+  max-width: 20rem;
+  color: rgba(249, 250, 251, 0.72);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.management-modal .management-confirm__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  width: 100%;
+  margin-top: 0.55rem;
+}
+
+.management-modal .management-confirm__button {
+  min-height: 3rem;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.management-modal .management-confirm__button.button--secondary {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+.management-modal .management-confirm__button.button--danger {
+  border-color: #ef4444;
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.management-modal .management-modal__card--map {
+  width: min(100%, 72rem);
+}
+
+.management-modal .management-modal__card--map .profile-modal__form--map {
+  display: grid;
+  grid-template-columns: minmax(20rem, 22rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 1.35rem;
+}
+
+.management-modal .management-modal__card--map .management-modal__layout {
+  display: contents;
+}
+
+.management-modal .management-modal__card--map .management-modal__map-column {
+  grid-column: 1;
+}
+
+.management-modal .management-modal__card--map .management-modal__info-column {
+  grid-column: 2;
+  align-self: start;
+}
+
+.management-modal .management-modal__card--map .profile-modal__actions {
+  grid-column: 1 / -1;
+}
+
+.management-modal .management-modal__card--map .management-map-picker {
+  gap: 0.75rem;
+}
+
+.management-modal .management-modal__card--map .management-map-picker__viewport,
+.management-modal .management-modal__card--map .management-map-picker__leaflet,
+.management-modal .management-modal__card--map .management-map-picker__viewport .leaflet-container {
+  height: 17rem;
+}
+
+.management-modal .profile-modal__form textarea.input {
+  min-height: 3rem;
+  resize: none;
+}
+
+.management-modal .management-modal__card--category .profile-modal__form .input {
+  box-sizing: border-box;
+  height: 5.5rem;
+  min-height: 5.5rem;
+}
+
+.management-modal .management-modal__card--category .profile-modal__form textarea.input {
+  overflow: hidden;
+  line-height: 1.35;
+}
+
+.management-modal .management-modal__card--binding {
+  position: relative;
+  width: min(100%, 34rem);
+  max-height: none;
+  overflow: visible;
+}
+
+.management-modal .management-modal__card--binding .profile-modal__header {
+  align-items: center;
+  padding-right: 0;
+}
+
+.management-modal .management-modal__card--binding .profile-modal__close {
+  position: static;
+  margin-left: auto;
+}
+
+.management-modal .management-modal__card--binding .profile-modal__form {
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.management-modal .management-modal__card--binding .management-binding-panel,
+:root[data-theme='light'] .management-modal .management-modal__card--binding .management-binding-panel {
+  display: grid;
+  gap: 0.85rem;
+  width: 100%;
+  min-height: 5.75rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: #f8fafc;
+}
+
+.management-modal .management-modal__card--binding .management-binding-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #ffffff;
+}
+
+.management-modal .management-modal__card--binding .management-binding-panel__head strong {
+  color: #ffffff;
+}
+
+.management-modal .management-modal__card--binding .management-binding-panel__head span {
+  color: rgba(248, 250, 252, 0.62);
+}
+
+.management-modal .management-modal__card--binding .management-modal__hint {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.72);
+}
+
+.management-modal .management-modal__card--binding .management-binding-list {
+  gap: 0.6rem;
+}
+
+.management-modal .management-modal__card--binding .management-binding-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.management-modal .management-modal__card--binding .management-binding-row__copy {
+  min-width: 0;
+}
+
+.management-modal .management-modal__card--binding .management-binding-row__remove {
+  margin-left: auto;
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-color: rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+.management-modal .management-modal__card--binding .management-binding-row__remove:hover {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(248, 113, 113, 0.16);
+  color: #fecaca;
+}
+
+.management-modal .management-modal__card--binding .field {
+  width: 100%;
+}
+
+.management-modal .management-modal__card--binding .input {
+  min-height: 4.5rem;
+  border-color: rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 1rem;
+}
+
+.management-modal .management-modal__card--binding .management-custom-select {
+  position: relative;
+  gap: 0.5rem;
+}
+
+.management-modal .management-custom-select__button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.06)),
+    #171717;
+  color: #ffffff;
+  font: inherit;
+  font-size: 1rem;
+  text-align: left;
+}
+
+.management-modal .management-custom-select__button:disabled {
+  opacity: 0.55;
+}
+
+.management-modal .management-custom-select__button svg {
+  flex: 0 0 auto;
+  color: rgba(248, 250, 252, 0.86);
+  transition: transform 0.18s ease;
+}
+
+.management-modal .management-custom-select--open .management-custom-select__button {
+  border-color: rgba(255, 255, 255, 0.34);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.management-modal .management-custom-select--open .management-custom-select__button svg {
+  transform: rotate(180deg);
+}
+
+.management-modal .management-custom-select__menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 20;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #262626 0%, #151515 100%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+}
+
+.management-modal .management-custom-select__option,
+.management-modal .management-custom-select__empty {
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: rgba(248, 250, 252, 0.86);
+  font: inherit;
+  text-align: left;
+}
+
+.management-modal .management-custom-select__option:hover,
+.management-modal .management-custom-select__option--active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.management-modal .management-custom-select__empty {
+  color: rgba(226, 232, 240, 0.58);
+}
+
+@media (max-width: 720px) {
+  .management-page.admin-surface--management .management-toolbar__actions,
+  .management-page.admin-surface--management .management-toolbar__button-row {
+    justify-content: stretch;
+    flex-wrap: wrap;
+  }
+
+  .management-page.admin-surface--management .management-quick-action,
+  .management-page.admin-surface--management .management-tab {
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 0;
+  }
+
+  .management-page.admin-surface--management .management-card__inline-bindings {
+    flex-basis: 100%;
+  }
+
+  .management-page.admin-surface--management .management-search {
+    flex-direction: column;
+  }
+
+  .management-page.admin-surface--management .management-search__button {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .management-modal {
+    padding: 1rem !important;
+  }
+
+  .management-modal .management-modal__card--confirm {
+    padding: 3.25rem 1rem 1rem;
+  }
+
+  .management-modal .management-confirm__actions {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .management-modal .management-modal__card--map .profile-modal__form--map {
+    grid-template-columns: 1fr;
+  }
+
+  .management-modal .management-modal__card--map .management-modal__map-column,
+  .management-modal .management-modal__card--map .management-modal__info-column {
+    grid-column: 1;
+  }
+
+  .management-modal .management-modal__card--map .management-map-picker__viewport,
+  .management-modal .management-modal__card--map .management-map-picker__leaflet,
+  .management-modal .management-modal__card--map .management-map-picker__viewport .leaflet-container {
+    height: 22rem;
   }
 }
 
@@ -9614,8 +10528,10 @@ button:disabled {
 .organizations-modal-shell .profile-modal__card,
 .organizations-modal-shell .organizations-modal__card,
 .organizations-confirm-modal .profile-modal__card {
+  position: relative;
+  isolation: isolate;
   border-color: rgba(255, 255, 255, 0.1);
-  background: linear-gradient(180deg, #111214 0%, #090a0c 100%);
+  background: linear-gradient(180deg, #0b0b0c 0%, #050505 68%, #020202 100%);
   color: #f9fafb;
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.5);
   max-height: calc(100dvh - 2rem);
@@ -9625,11 +10541,53 @@ button:disabled {
   transform: none !important;
 }
 
+.organizations-modal-shell .profile-modal__card::before,
+.organizations-modal-shell .organizations-modal__card::before,
+.organizations-confirm-modal .profile-modal__card::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -18rem;
+  width: min(74rem, 128%);
+  height: 34rem;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.26) 0%,
+    rgba(255, 255, 255, 0.14) 18%,
+    rgba(255, 255, 255, 0.06) 36%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  filter: blur(16px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.organizations-modal-shell .profile-modal__card::after,
+.organizations-modal-shell .organizations-modal__card::after,
+.organizations-confirm-modal .profile-modal__card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 20%, rgba(255, 255, 255, 0) 42%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.organizations-modal-shell .profile-modal__card > *,
+.organizations-modal-shell .organizations-modal__card > *,
+.organizations-confirm-modal .profile-modal__card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .organizations-modal-shell.organizations-confirm-modal .management-modal__card--confirm {
   width: min(100%, 30rem);
   aspect-ratio: auto;
   min-height: 0;
   padding: 1.2rem 1.1rem 1rem;
+  overflow: hidden;
 }
 
 .organizations-modal-shell.organizations-confirm-modal .management-confirm--modal {

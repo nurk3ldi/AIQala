@@ -7,7 +7,7 @@ import 'leaflet/dist/leaflet.css';
 
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { InputField, SelectField, TextareaField } from '../components/ui/Fields';
+import { InputField, SelectField } from '../components/ui/Fields';
 import { LoadingState } from '../components/ui/LoadingState';
 import { useAuth } from '../context/auth-context';
 import { useTranslation } from '../context/language-context';
@@ -22,7 +22,7 @@ import {
   resolveFileUrl,
   statusTone,
 } from '../lib/format';
-import type { Comment, DraftCommentResult, IssueRequest, Organization } from '../types/api';
+import type { Comment, IssueRequest, Organization } from '../types/api';
 
 const REQUEST_DETAIL_FALLBACK_CENTER: [number, number] = [51.1694, 71.4491];
 const REQUEST_DETAIL_PHOTO_LIMIT = 3;
@@ -59,11 +59,8 @@ export const RequestDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [request, setRequest] = useState<IssueRequest | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [draft, setDraft] = useState<DraftCommentResult | null>(null);
   const [assignBusy, setAssignBusy] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
-  const [commentBusy, setCommentBusy] = useState(false);
-  const [discussionBusy, setDiscussionBusy] = useState(false);
   const [mediaBusy, setMediaBusy] = useState(false);
   const [commentActionBusyId, setCommentActionBusyId] = useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -73,22 +70,9 @@ export const RequestDetailPage = () => {
     priority: '',
   });
   const [statusValue, setStatusValue] = useState<'accepted' | 'in_progress' | 'resolved'>('accepted');
-  const [commentText, setCommentText] = useState('');
-  const [discussionText, setDiscussionText] = useState('');
   const [requestPhotoIndex, setRequestPhotoIndex] = useState(0);
   const [organizationPhotoIndex, setOrganizationPhotoIndex] = useState(0);
   const [photoViewer, setPhotoViewer] = useState<{ src: string; alt: string } | null>(null);
-  const [draftForm, setDraftForm] = useState<{
-    objective: 'acknowledge' | 'status_update' | 'request_more_info' | 'resolution';
-    tone: 'formal' | 'empathetic' | 'concise';
-    includeNextSteps: boolean;
-    extraInstructions: string;
-  }>({
-    objective: 'status_update',
-    tone: 'formal',
-    includeNextSteps: true,
-    extraInstructions: '',
-  });
   const [mediaFile, setMediaFile] = useState<File | null>(null);
 
   useEffect(() => {
@@ -218,57 +202,6 @@ export const RequestDetailPage = () => {
     }
   };
 
-  const generateDraft = async () => {
-    if (!id) {
-      return;
-    }
-
-    try {
-      const result = await api.ai.draftComment(id, draftForm);
-      setDraft(result);
-      setCommentText(result.commentText);
-
-      if (result.suggestedStatus) {
-        setStatusValue(result.suggestedStatus);
-      }
-    } catch (error) {
-      pushToast({
-        tone: 'error',
-        title: t('requestDetail.draftFailed'),
-        description: getErrorMessage(error),
-      });
-    }
-  };
-
-  const addComment = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!id) {
-      return;
-    }
-
-    setCommentBusy(true);
-
-    try {
-      await api.requests.addComment(id, commentText);
-      setCommentText('');
-      setDraft(null);
-      await refreshRequest();
-      pushToast({
-        tone: 'success',
-        title: t('requestDetail.commentSuccessTitle'),
-        description: t('requestDetail.commentSuccessDescription'),
-      });
-    } catch (error) {
-      pushToast({
-        tone: 'error',
-        title: t('requestDetail.commentFailed'),
-        description: getErrorMessage(error),
-      });
-    } finally {
-      setCommentBusy(false);
-    }
-  };
-
   const uploadMedia = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!id || !mediaFile) {
@@ -311,39 +244,6 @@ export const RequestDetailPage = () => {
     }
 
     return false;
-  };
-
-  const submitDiscussionComment = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!id || !user || (user.role !== 'user' && user.role !== 'organization')) {
-      return;
-    }
-
-    const nextText = discussionText.trim();
-    if (!nextText) {
-      return;
-    }
-
-    setDiscussionBusy(true);
-
-    try {
-      await api.requests.addComment(id, nextText);
-      setDiscussionText('');
-      await refreshRequest();
-      pushToast({
-        tone: 'success',
-        title: t('requestDetail.commentSuccessTitle'),
-        description: t('requestDetail.commentSuccessDescription'),
-      });
-    } catch (error) {
-      pushToast({
-        tone: 'error',
-        title: t('requestDetail.commentFailed'),
-        description: getErrorMessage(error),
-      });
-    } finally {
-      setDiscussionBusy(false);
-    }
   };
 
   const startCommentEdit = (comment: Comment) => {
@@ -465,7 +365,6 @@ export const RequestDetailPage = () => {
   const backToRequestsText = t('common.back');
   const requestPhotoAlt = t('requestDetail.mediaTitle');
   const canUseDiscussionComposer = user?.role === 'user' || user?.role === 'organization';
-  const currentUserInitial = (user?.fullName?.trim().charAt(0) || 'U').toUpperCase();
   const mainInfoPanel = (
     <article className="panel glass-card request-detail-minimal__main-info-panel">
       <div className="panel__header">
@@ -783,40 +682,6 @@ export const RequestDetailPage = () => {
                     <p className="request-detail-comments-empty">{t('requestDetail.commentsEmptyDescription')}</p>
                   )}
                 </div>
-
-                {canUseDiscussionComposer ? (
-                  <form className="request-detail-comment-form" onSubmit={submitDiscussionComment}>
-                    <span className="request-detail-comment-avatar" aria-hidden="true">
-                      {user?.avatarUrl ? (
-                        <img src={resolveFileUrl(user.avatarUrl)} alt={user.fullName} className="request-detail-comment-avatar-image" />
-                      ) : (
-                        currentUserInitial
-                      )}
-                    </span>
-                    <div className="request-detail-comment-editor">
-                      <textarea
-                        className="request-detail-comment-input"
-                        value={discussionText}
-                        onChange={(event) => setDiscussionText(event.target.value)}
-                        placeholder={t('requestDetail.comment')}
-                        rows={2}
-                      />
-                      <div className="request-detail-comment-actions">
-                        <button
-                          type="button"
-                          className="request-detail-comment-action"
-                          onClick={() => setDiscussionText('')}
-                          disabled={discussionBusy || !discussionText.trim()}
-                        >
-                          {t('common.close')}
-                        </button>
-                        <button type="submit" className="request-detail-comment-submit" disabled={discussionBusy || !discussionText.trim()}>
-                          {t('requestDetail.publishComment')}
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-                ) : null}
               </div>
             </article>
           ) : null}
@@ -877,87 +742,6 @@ export const RequestDetailPage = () => {
                   </SelectField>
                   <Button type="submit" busy={statusBusy}>
                     {t('requestDetail.updateStatus')}
-                  </Button>
-                </form>
-              </article>
-
-              <article className="panel glass-card">
-                <div className="panel__header">
-                  <span className="section-title__eyebrow">{t('requestDetail.draftEyebrow')}</span>
-                  <h3>{t('requestDetail.draftTitle')}</h3>
-                </div>
-                <div className="page">
-                  <div className="grid-2">
-                    <SelectField
-                      label={t('requestDetail.objective')}
-                      value={draftForm.objective}
-                      onChange={(event) =>
-                        setDraftForm((current) => ({
-                          ...current,
-                          objective: event.target.value as 'acknowledge' | 'status_update' | 'request_more_info' | 'resolution',
-                        }))
-                      }
-                    >
-                      <option value="acknowledge">{t('requestDetail.objectiveOptions.acknowledge')}</option>
-                      <option value="status_update">{t('requestDetail.objectiveOptions.status_update')}</option>
-                      <option value="request_more_info">{t('requestDetail.objectiveOptions.request_more_info')}</option>
-                      <option value="resolution">{t('requestDetail.objectiveOptions.resolution')}</option>
-                    </SelectField>
-                    <SelectField
-                      label={t('requestDetail.tone')}
-                      value={draftForm.tone}
-                      onChange={(event) =>
-                        setDraftForm((current) => ({
-                          ...current,
-                          tone: event.target.value as 'formal' | 'empathetic' | 'concise',
-                        }))
-                      }
-                    >
-                      <option value="formal">{t('requestDetail.toneOptions.formal')}</option>
-                      <option value="empathetic">{t('requestDetail.toneOptions.empathetic')}</option>
-                      <option value="concise">{t('requestDetail.toneOptions.concise')}</option>
-                    </SelectField>
-                  </div>
-                  <TextareaField
-                    label={t('requestDetail.extraInstructions')}
-                    value={draftForm.extraInstructions}
-                    onChange={(event) => setDraftForm((current) => ({ ...current, extraInstructions: event.target.value }))}
-                  />
-                  <label className="field">
-                    <span className="field__label">{t('requestDetail.includeNextSteps')}</span>
-                    <input
-                      type="checkbox"
-                      checked={draftForm.includeNextSteps}
-                      onChange={(event) => setDraftForm((current) => ({ ...current, includeNextSteps: event.target.checked }))}
-                    />
-                  </label>
-                  <Button variant="secondary" onClick={generateDraft}>
-                    {t('requestDetail.generateDraft')}
-                  </Button>
-                  {draft ? (
-                    <div className="record-card">
-                      <p className="muted-text">{draft.internalSummary}</p>
-                      {draft.suggestedStatus ? <Badge tone="accent">{t('requestDetail.suggestedStatus', { status: formatStatusLabel(draft.suggestedStatus as 'accepted' | 'in_progress' | 'resolved') })}</Badge> : null}
-                    </div>
-                  ) : null}
-                </div>
-              </article>
-
-              <article className="panel glass-card">
-                <div className="panel__header">
-                  <span className="section-title__eyebrow">{t('requestDetail.publicCommentEyebrow')}</span>
-                  <h3>{t('requestDetail.publicCommentTitle')}</h3>
-                </div>
-                <form className="page" onSubmit={addComment}>
-                  <TextareaField
-                    label={t('requestDetail.comment')}
-                    value={commentText}
-                    onChange={(event) => setCommentText(event.target.value)}
-                    required
-                    minLength={1}
-                  />
-                  <Button type="submit" busy={commentBusy}>
-                    {t('requestDetail.publishComment')}
                   </Button>
                 </form>
               </article>

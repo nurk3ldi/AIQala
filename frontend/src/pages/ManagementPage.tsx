@@ -1,4 +1,4 @@
-import { Building2, LayoutGrid, Link2, MapPin, MapPinned, Pencil, Trash2, X } from 'lucide-react';
+import { Building2, ChevronDown, LayoutGrid, Link2, MapPin, MapPinned, Pencil, Search, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import L from 'leaflet';
@@ -147,6 +147,62 @@ const CoordinateMapPicker = ({
             : '--'}
         </span>
       </div>
+    </div>
+  );
+};
+
+const BindingSelectField = ({
+  label,
+  value,
+  placeholder,
+  options,
+  disabled,
+  open,
+  onToggle,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  options: Array<{ value: string; label: string }>;
+  disabled?: boolean;
+  open: boolean;
+  onToggle: () => void;
+  onChange: (value: string) => void;
+}) => {
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
+    <div className={`management-custom-select field ${open ? 'management-custom-select--open' : ''}`.trim()}>
+      <span className="field__label">{label}</span>
+      <button
+        type="button"
+        className="management-custom-select__button"
+        onClick={onToggle}
+        disabled={disabled}
+        aria-expanded={open}
+      >
+        <span>{selectedOption?.label ?? placeholder}</span>
+        <ChevronDown size={18} />
+      </button>
+      {open && !disabled ? (
+        <div className="management-custom-select__menu">
+          {options.length ? (
+            options.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`management-custom-select__option ${option.value === value ? 'management-custom-select__option--active' : ''}`.trim()}
+                onClick={() => onChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))
+          ) : (
+            <span className="management-custom-select__empty">{placeholder}</span>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -306,6 +362,7 @@ const initialBindForm = () => ({ categoryId: '', cityId: '', organizationId: '' 
 const MAP_MODAL_TYPES = new Set(['create-city', 'edit-city', 'create-district', 'edit-district']);
 const DELETE_MODAL_TYPES = new Set(['delete-category', 'delete-city', 'delete-district']);
 const ORGANIZATION_PAGE_LIMIT = 100;
+const normalizeSearchValue = (value: string) => value.trim().toLocaleLowerCase('kk-KZ');
 
 export const ManagementPage = () => {
   const { language, t } = useTranslation();
@@ -317,6 +374,9 @@ export const ManagementPage = () => {
   const [bindingActionBusyId, setBindingActionBusyId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<ManagementSection>('categories');
   const [modalState, setModalState] = useState<ModalState>(null);
+  const [searchDraft, setSearchDraft] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [openBindingSelect, setOpenBindingSelect] = useState<'city' | 'organization' | null>(null);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [cities, setCities] = useState<City[]>([]);
@@ -413,10 +473,48 @@ export const ManagementPage = () => {
     return bindings;
   }, [categories, categoryOrganizations]);
 
+  const normalizedSearchQuery = normalizeSearchValue(searchQuery);
+  const hasSearchQuery = normalizedSearchQuery.length > 0;
+
+  const filteredCategories = useMemo(() => {
+    if (!hasSearchQuery) {
+      return categories;
+    }
+
+    return categories.filter((category) => {
+      const boundOrganizations = categoryBindingsByCategoryId.get(category.id) ?? [];
+      return [category.name, category.description ?? '', ...boundOrganizations.map((organization) => organization.name)]
+        .some((value) => normalizeSearchValue(value).includes(normalizedSearchQuery));
+    });
+  }, [categories, categoryBindingsByCategoryId, hasSearchQuery, normalizedSearchQuery]);
+
+  const filteredCities = useMemo(() => {
+    if (!hasSearchQuery) {
+      return cities;
+    }
+
+    return cities.filter((city) =>
+      [city.name, city.region ?? '', city.latitude ?? '', city.longitude ?? '']
+        .some((value) => normalizeSearchValue(value).includes(normalizedSearchQuery)),
+    );
+  }, [cities, hasSearchQuery, normalizedSearchQuery]);
+
+  const filteredDistricts = useMemo(() => {
+    if (!hasSearchQuery) {
+      return districts;
+    }
+
+    return districts.filter((district) =>
+      [district.name, district.city?.name ?? '', district.latitude ?? '', district.longitude ?? '']
+        .some((value) => normalizeSearchValue(value).includes(normalizedSearchQuery)),
+    );
+  }, [districts, hasSearchQuery, normalizedSearchQuery]);
+
   const closeModal = () => {
     setModalState(null);
     setSubmitting(false);
     setBindingActionBusyId(null);
+    setOpenBindingSelect(null);
   };
 
   const openCreateCategory = () => {
@@ -820,39 +918,35 @@ export const ManagementPage = () => {
               )}
             </div>
 
-            <SelectField
+            <BindingSelectField
               label={t('common.city')}
               value={bindForm.cityId}
-              onChange={(event) =>
+              placeholder={t('catalog.chooseCity')}
+              options={cities.map((city) => ({ value: city.id, label: city.name }))}
+              open={openBindingSelect === 'city'}
+              onToggle={() => setOpenBindingSelect((current) => (current === 'city' ? null : 'city'))}
+              onChange={(value) => {
                 setBindForm((current) => ({
                   ...current,
-                  cityId: event.target.value,
+                  cityId: value,
                   organizationId: '',
-                }))
-              }
-              required
-            >
-              <option value="">{t('catalog.chooseCity')}</option>
-              {cities.map((city) => (
-                <option key={city.id} value={city.id}>
-                  {city.name}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField
+                }));
+                setOpenBindingSelect(null);
+              }}
+            />
+            <BindingSelectField
               label={t('common.organization')}
               value={bindForm.organizationId}
-              onChange={(event) => setBindForm((current) => ({ ...current, organizationId: event.target.value }))}
+              placeholder={t('catalog.chooseOrganization')}
+              options={bindableOrganizations.map((organization) => ({ value: organization.id, label: organization.name }))}
+              open={openBindingSelect === 'organization'}
+              onToggle={() => setOpenBindingSelect((current) => (current === 'organization' ? null : 'organization'))}
+              onChange={(value) => {
+                setBindForm((current) => ({ ...current, organizationId: value }));
+                setOpenBindingSelect(null);
+              }}
               disabled={!bindForm.cityId}
-              required
-            >
-              <option value="">{t('catalog.chooseOrganization')}</option>
-              {bindableOrganizations.map((organization) => (
-                <option key={organization.id} value={organization.id}>
-                  {organization.name}
-                </option>
-              ))}
-            </SelectField>
+            />
           </>
         );
       case 'delete-category':
@@ -885,9 +979,13 @@ export const ManagementPage = () => {
         return <EmptyState title={copy.empty.categories.title} description={copy.empty.categories.description} />;
       }
 
+      if (!filteredCategories.length) {
+        return <EmptyState title="Нәтиже жоқ" description="Іздеу сөзін өзгертіп көріңіз." />;
+      }
+
       return (
         <div className="management-grid">
-          {categories.map((category) => (
+          {filteredCategories.map((category) => (
             <article key={category.id} className="management-card glass-card">
               <div className="management-card__head">
                 <div className="management-card__identity">
@@ -897,6 +995,23 @@ export const ManagementPage = () => {
                   <div className="management-card__copy">
                     <strong>{category.name}</strong>
                     {category.description ? <p>{category.description}</p> : null}
+                  </div>
+                  <div className="management-card__inline-bindings">
+                    {(categoryBindingsByCategoryId.get(category.id) ?? []).length ? (
+                      (categoryBindingsByCategoryId.get(category.id) ?? []).slice(0, 4).map((organization) => (
+                        <span key={organization.id} className="management-chip">
+                          <Building2 size={13} />
+                          {organization.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="management-chip">{t('common.notSpecified')}</span>
+                    )}
+                    {(categoryBindingsByCategoryId.get(category.id) ?? []).length > 4 ? (
+                      <span className="management-chip">
+                        +{(categoryBindingsByCategoryId.get(category.id) ?? []).length - 4}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <div className="management-card__actions">
@@ -934,23 +1049,6 @@ export const ManagementPage = () => {
                   <span className="management-chip">{copy.noDescription}</span>
                 </div>
               ) : null}
-              <div className="management-card__meta management-card__meta--stack">
-                {(categoryBindingsByCategoryId.get(category.id) ?? []).length ? (
-                  (categoryBindingsByCategoryId.get(category.id) ?? []).slice(0, 4).map((organization) => (
-                    <span key={organization.id} className="management-chip">
-                      <Building2 size={13} />
-                      {organization.name}
-                    </span>
-                  ))
-                ) : (
-                  <span className="management-chip">{t('common.notSpecified')}</span>
-                )}
-                {(categoryBindingsByCategoryId.get(category.id) ?? []).length > 4 ? (
-                  <span className="management-chip">
-                    +{(categoryBindingsByCategoryId.get(category.id) ?? []).length - 4}
-                  </span>
-                ) : null}
-              </div>
             </article>
           ))}
         </div>
@@ -962,9 +1060,13 @@ export const ManagementPage = () => {
         return <EmptyState title={copy.empty.cities.title} description={copy.empty.cities.description} />;
       }
 
+      if (!filteredCities.length) {
+        return <EmptyState title="Нәтиже жоқ" description="Іздеу сөзін өзгертіп көріңіз." />;
+      }
+
       return (
         <div className="management-grid">
-          {cities.map((city) => (
+          {filteredCities.map((city) => (
             <article key={city.id} className="management-card glass-card">
               <div className="management-card__head">
                 <div className="management-card__identity">
@@ -973,7 +1075,6 @@ export const ManagementPage = () => {
                   </span>
                   <div className="management-card__copy">
                     <strong>{city.name}</strong>
-                    <p>{city.region ?? copy.regionFallback}</p>
                   </div>
                 </div>
                 <div className="management-card__actions">
@@ -997,13 +1098,6 @@ export const ManagementPage = () => {
                   </button>
                 </div>
               </div>
-              <div className="management-card__meta">
-                {city.latitude && city.longitude ? (
-                  <span className="management-chip">
-                    {copy.coordinates}: {city.latitude}, {city.longitude}
-                  </span>
-                ) : null}
-              </div>
             </article>
           ))}
         </div>
@@ -1014,9 +1108,13 @@ export const ManagementPage = () => {
       return <EmptyState title={copy.empty.districts.title} description={copy.empty.districts.description} />;
     }
 
+    if (!filteredDistricts.length) {
+      return <EmptyState title="Нәтиже жоқ" description="Іздеу сөзін өзгертіп көріңіз." />;
+    }
+
     return (
       <div className="management-grid">
-        {districts.map((district) => (
+        {filteredDistricts.map((district) => (
           <article key={district.id} className="management-card glass-card">
             <div className="management-card__head">
               <div className="management-card__identity">
@@ -1049,13 +1147,6 @@ export const ManagementPage = () => {
                 </button>
               </div>
             </div>
-            <div className="management-card__meta">
-              {district.latitude && district.longitude ? (
-                <span className="management-chip">
-                  {copy.coordinates}: {district.latitude}, {district.longitude}
-                </span>
-              ) : null}
-            </div>
           </article>
         ))}
       </div>
@@ -1068,6 +1159,9 @@ export const ManagementPage = () => {
 
   const isMapModal = modalState ? MAP_MODAL_TYPES.has(modalState.type) : false;
   const isDeleteModal = modalState ? DELETE_MODAL_TYPES.has(modalState.type) : false;
+  const isCategoryFormModal = modalState?.type === 'create-category' || modalState?.type === 'edit-category';
+  const isBindingModal = modalState?.type === 'bind-category';
+  const deleteLabel = language === 'kk' ? 'Жою' : t('common.delete');
   const deleteConfirmMessage = (() => {
     if (!modalState) {
       return '';
@@ -1089,31 +1183,41 @@ export const ManagementPage = () => {
     {
       key: 'categories' as const,
       label: copy.tabs.categories,
-      count: categories.length,
+      count: filteredCategories.length,
       icon: LayoutGrid,
     },
     {
       key: 'cities' as const,
       label: copy.tabs.cities,
-      count: cities.length,
+      count: filteredCities.length,
       icon: Building2,
     },
     {
       key: 'districts' as const,
       label: copy.tabs.districts,
-      count: districts.length,
+      count: filteredDistricts.length,
       icon: MapPin,
     },
   ];
+  const quickActionLabels = {
+    category: language === 'kk' ? 'Жаңа санат' : copy.createCategory,
+    city: language === 'kk' ? 'Жаңа қала' : copy.createCity,
+    district: language === 'kk' ? 'Жаңа аудан' : copy.createDistrict,
+  };
+  const searchLabel = language === 'kk' ? 'Іздеу' : language === 'ru' ? 'Поиск' : 'Search';
+  const searchPlaceholder =
+    language === 'kk'
+      ? 'Санат, қала немесе аудан іздеу'
+      : language === 'ru'
+        ? 'Найти категорию, город или район'
+        : 'Search category, city, or district';
 
   return (
     <div className="page management-page admin-surface admin-surface--management">
       <section className="page-header glass-card admin-surface__hero">
         <div className="admin-surface__hero-copy">
-          <span className="admin-surface__eyebrow">{t('catalog.eyebrow')}</span>
           <div className="admin-surface__hero-heading">
-            <h1>{t('catalog.title')}</h1>
-            <p className="catalog-page__subtitle">{t('catalog.description')}</p>
+            <h1>Басқару</h1>
           </div>
         </div>
 
@@ -1135,42 +1239,74 @@ export const ManagementPage = () => {
 
       <section className="management-toolbar glass-card admin-surface__toolbar">
         <div className="management-toolbar__actions admin-surface__toolbar-row">
-          <Button type="button" variant="secondary" className="management-quick-action" onClick={openCreateCategory}>
-            <LayoutGrid size={18} />
-            <span>{copy.createCategory}</span>
-          </Button>
-          <Button type="button" variant="secondary" className="management-quick-action" onClick={openCreateCity}>
-            <Building2 size={18} />
-            <span>{copy.createCity}</span>
-          </Button>
-          <Button type="button" variant="secondary" className="management-quick-action" onClick={openCreateDistrict}>
-            <MapPinned size={18} />
-            <span>{copy.createDistrict}</span>
-          </Button>
+          <div className="management-toolbar__button-row">
+            <Button type="button" variant="secondary" className="management-quick-action" onClick={openCreateCategory}>
+              <LayoutGrid size={18} />
+              <span>{quickActionLabels.category}</span>
+            </Button>
+            <Button type="button" variant="secondary" className="management-quick-action" onClick={openCreateCity}>
+              <Building2 size={18} />
+              <span>{quickActionLabels.city}</span>
+            </Button>
+            <Button type="button" variant="secondary" className="management-quick-action" onClick={openCreateDistrict}>
+              <MapPinned size={18} />
+              <span>{quickActionLabels.district}</span>
+            </Button>
+
+            {sectionTabs.map((section) => {
+              const Icon = section.icon;
+
+              return (
+                <button
+                  key={section.key}
+                  type="button"
+                  className={`management-tab ${activeSection === section.key ? 'management-tab--active' : ''}`}
+                  onClick={() => setActiveSection(section.key)}
+                >
+                  <span className="management-tab__icon">
+                    <Icon size={18} />
+                  </span>
+                  <span className="management-tab__copy">
+                    <strong>{section.label}</strong>
+                    <span>{section.count}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="management-tabs admin-surface__segmented">
-          {sectionTabs.map((section) => {
-            const Icon = section.icon;
+        <form
+          className="management-search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSearchQuery(searchDraft);
+          }}
+        >
+          <label className="sr-only" htmlFor="management-search-field">
+            {searchLabel}
+          </label>
+          <div className="management-search__field">
+            <Search size={18} />
+            <input
+              id="management-search-field"
+              value={searchDraft}
+              placeholder={searchPlaceholder}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setSearchDraft(nextValue);
 
-            return (
-              <button
-                key={section.key}
-                type="button"
-                className={`management-tab ${activeSection === section.key ? 'management-tab--active' : ''}`}
-                onClick={() => setActiveSection(section.key)}
-              >
-                <span className="management-tab__icon">
-                  <Icon size={18} />
-                </span>
-                <span className="management-tab__copy">
-                  <strong>{section.label}</strong>
-                  <span>{section.count}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                if (!nextValue.trim()) {
+                  setSearchQuery('');
+                }
+              }}
+            />
+          </div>
+          <Button type="submit" variant="secondary" className="management-search__button">
+            <Search size={18} />
+            <span>{searchLabel}</span>
+          </Button>
+        </form>
       </section>
 
       {renderSectionContent()}
@@ -1194,7 +1330,7 @@ export const ManagementPage = () => {
                   <Trash2 size={24} />
                 </span>
                 <div className="management-confirm__copy">
-                  <h3>{t('common.delete')}</h3>
+                  <h3>{deleteLabel}</h3>
                   <p>{deleteConfirmMessage}</p>
                 </div>
                 <div className="management-confirm__actions">
@@ -1202,7 +1338,7 @@ export const ManagementPage = () => {
                     {copy.cancel}
                   </Button>
                   <Button type="submit" variant="danger" className="management-confirm__button" busy={submitting}>
-                    {t('common.delete')}
+                    {deleteLabel}
                   </Button>
                 </div>
               </form>
@@ -1211,6 +1347,10 @@ export const ManagementPage = () => {
             <article
               className={`profile-modal__card glass-card management-modal__card ${
                 isMapModal ? 'management-modal__card--map' : ''
+              } ${
+                isCategoryFormModal ? 'management-modal__card--category' : ''
+              } ${
+                isBindingModal ? 'management-modal__card--binding' : ''
               }`.trim()}
             >
               <div className="profile-modal__header">
