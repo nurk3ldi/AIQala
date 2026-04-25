@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, MessageCircle, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, MessageCircle, X } from 'lucide-react';
 import { CircleMarker, MapContainer, TileLayer, useMap } from 'react-leaflet';
 
 import 'leaflet/dist/leaflet.css';
@@ -22,7 +22,7 @@ import {
   resolveFileUrl,
   statusTone,
 } from '../lib/format';
-import type { Comment, IssueRequest, Organization } from '../types/api';
+import type { IssueRequest, Organization } from '../types/api';
 
 const REQUEST_DETAIL_FALLBACK_CENTER: [number, number] = [51.1694, 71.4491];
 const REQUEST_DETAIL_PHOTO_LIMIT = 3;
@@ -62,9 +62,6 @@ export const RequestDetailPage = () => {
   const [assignBusy, setAssignBusy] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
   const [mediaBusy, setMediaBusy] = useState(false);
-  const [commentActionBusyId, setCommentActionBusyId] = useState<string | null>(null);
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-  const [editingCommentText, setEditingCommentText] = useState('');
   const [assignForm, setAssignForm] = useState({
     organizationId: '',
     priority: '',
@@ -230,86 +227,6 @@ export const RequestDetailPage = () => {
     }
   };
 
-  const canManageComment = (comment: Comment) => {
-    if (!user) {
-      return false;
-    }
-
-    if (user.role === 'user') {
-      return comment.authorUserId === user.id;
-    }
-
-    if (user.role === 'organization') {
-      return Boolean(comment.authorOrganizationId) && comment.authorOrganizationId === user.organizationId;
-    }
-
-    return false;
-  };
-
-  const startCommentEdit = (comment: Comment) => {
-    setEditingCommentId(comment.id);
-    setEditingCommentText(comment.text);
-  };
-
-  const cancelCommentEdit = () => {
-    setEditingCommentId(null);
-    setEditingCommentText('');
-  };
-
-  const saveCommentEdit = async (commentId: string) => {
-    if (!id) {
-      return;
-    }
-
-    const nextText = editingCommentText.trim();
-    if (!nextText) {
-      return;
-    }
-
-    setCommentActionBusyId(commentId);
-
-    try {
-      await api.requests.updateComment(id, commentId, nextText);
-      await refreshRequest();
-      setEditingCommentId(null);
-      setEditingCommentText('');
-    } catch (error) {
-      pushToast({
-        tone: 'error',
-        title: t('requestDetail.commentFailed'),
-        description: getErrorMessage(error),
-      });
-    } finally {
-      setCommentActionBusyId(null);
-    }
-  };
-
-  const deleteOwnComment = async (commentId: string) => {
-    if (!id) {
-      return;
-    }
-
-    setCommentActionBusyId(commentId);
-
-    try {
-      await api.requests.removeComment(id, commentId);
-      await refreshRequest();
-
-      if (editingCommentId === commentId) {
-        setEditingCommentId(null);
-        setEditingCommentText('');
-      }
-    } catch (error) {
-      pushToast({
-        tone: 'error',
-        title: t('requestDetail.commentFailed'),
-        description: getErrorMessage(error),
-      });
-    } finally {
-      setCommentActionBusyId(null);
-    }
-  };
-
   const deleteRequest = async () => {
     if (!id || !window.confirm(t('requestDetail.deleteConfirm'))) {
       return;
@@ -356,7 +273,6 @@ export const RequestDetailPage = () => {
   const mapZoom = request.latitude && request.longitude ? 15 : 12;
   const hasSidePanel = user?.role === 'admin' || user?.role === 'organization';
   const mainInfoTitle = t('requestDetail.mainInfoTitle');
-  const commentsTitle = t('requestDetail.discussionTitle');
   const requestPhotosLabel = t('requestDetail.mediaTitle');
   const organizationPhotosLabel = `${t('common.organization')} ${t('requestDetail.mediaTitle')}`;
   const requestPhotosEmpty = t('requestDetail.mediaEmptyDescription');
@@ -578,113 +494,6 @@ export const RequestDetailPage = () => {
             </div>
           </article>
 
-          {user?.role !== 'admin' ? (
-            <article className="panel glass-card">
-              <div className="panel__header">
-                <span className="section-title__eyebrow">{t('requestDetail.discussionEyebrow')}</span>
-                <h3>{commentsTitle}</h3>
-              </div>
-              <div className="request-detail-discussion">
-                <div className="request-detail-discussion__list">
-                  {request.comments?.length ? (
-                    request.comments.map((comment) => {
-                      const authorName =
-                        comment.authorOrganization?.name ??
-                        comment.authorUser?.fullName ??
-                        (comment.authorUserId === user?.id ? user?.fullName : null) ??
-                        t('requestDetail.authorFallback');
-                      const authorAvatar =
-                        comment.authorUser?.avatarUrl ??
-                        (comment.authorUserId === user?.id ? user?.avatarUrl ?? null : null) ??
-                        comment.authorOrganization?.logoUrl ??
-                        null;
-                      const authorInitial = authorName.trim().charAt(0).toUpperCase() || '?';
-                      const isOwnComment = canManageComment(comment);
-                      const isEditing = editingCommentId === comment.id;
-                      const isActionBusy = commentActionBusyId === comment.id;
-
-                      return (
-                        <article key={comment.id} className="request-detail-comment-item">
-                          <span className="request-detail-comment-avatar" aria-hidden="true">
-                            {authorAvatar ? (
-                              <img src={resolveFileUrl(authorAvatar)} alt={authorName} className="request-detail-comment-avatar-image" />
-                            ) : (
-                              authorInitial
-                            )}
-                          </span>
-                          <div className="request-detail-comment-body">
-                            <div className="request-detail-comment-meta">
-                              <strong>{authorName}</strong>
-                              <div className="request-detail-comment-meta-right">
-                                <span>{formatDateTime(comment.createdAt)}</span>
-                                {isOwnComment && !isEditing ? (
-                                  <div className="request-detail-comment-meta-actions">
-                                    <button
-                                      type="button"
-                                      className="request-detail-comment-action request-detail-comment-action--icon request-detail-comment-action--compact"
-                                      onClick={() => startCommentEdit(comment)}
-                                      disabled={isActionBusy}
-                                      aria-label={t('common.edit')}
-                                    >
-                                      <Pencil size={12} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="request-detail-comment-delete request-detail-comment-action--icon request-detail-comment-action--compact"
-                                      onClick={() => void deleteOwnComment(comment.id)}
-                                      disabled={isActionBusy}
-                                      aria-label={t('common.delete')}
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-
-                            {isEditing ? (
-                              <div className="request-detail-comment-editor">
-                                <textarea
-                                  className="request-detail-comment-input request-detail-comment-input--inline"
-                                  value={editingCommentText}
-                                  onChange={(event) => setEditingCommentText(event.target.value)}
-                                  rows={2}
-                                />
-                                <div className="request-detail-comment-actions">
-                                  <button
-                                    type="button"
-                                    className="request-detail-comment-action"
-                                    onClick={cancelCommentEdit}
-                                    disabled={isActionBusy}
-                                  >
-                                    {t('common.close')}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="request-detail-comment-submit"
-                                    onClick={() => void saveCommentEdit(comment.id)}
-                                    disabled={isActionBusy || !editingCommentText.trim()}
-                                  >
-                                    {t('common.save')}
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <>
-                                <p>{comment.text}</p>
-                              </>
-                            )}
-                          </div>
-                        </article>
-                      );
-                    })
-                  ) : (
-                    <p className="request-detail-comments-empty">{t('requestDetail.commentsEmptyDescription')}</p>
-                  )}
-                </div>
-              </div>
-            </article>
-          ) : null}
         </div>
 
         {hasSidePanel ? (

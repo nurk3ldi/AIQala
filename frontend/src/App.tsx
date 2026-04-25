@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { Monitor, MonitorX, Smartphone } from 'lucide-react';
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Monitor } from 'lucide-react';
 
 import { AppShell } from './components/layout/AppShellBare';
 import { LoadingState } from './components/ui/LoadingState';
@@ -86,21 +86,24 @@ const accessGuardCopy = {
 const AccessGuardPage = ({ variant }: { variant: AccessGuardVariant }) => {
   const { language } = useTranslation();
   const copy = variant === 'phone' ? accessGuardCopy[language].phone : accessGuardCopy[language].desktopNarrow;
-  const Icon = variant === 'phone' ? Smartphone : MonitorX;
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const returnToRegistration = () => {
+    logout();
+    navigate('/auth?mode=register', { replace: true });
+  };
 
   return (
     <main className="access-guard">
-      <section className="access-guard__card" role="alert" aria-live="polite">
-        <div className="access-guard__badge">
-          <Icon size={22} />
-          <span>{copy.code}</span>
+      <section className="access-guard__card" role="alert" aria-live="polite" aria-label={copy.code}>
+        <div className="access-guard__icon" aria-hidden="true">
+          <Monitor size={34} />
         </div>
-        <h1>{copy.title}</h1>
-        <p>{copy.description}</p>
-        <div className="access-guard__hint">
-          <Monitor size={16} />
-          <span>{copy.note}</span>
-        </div>
+        <p>Бұл аккаунтты пайдалану үшін desktop құрылғы пайдаланыңыз</p>
+        <button type="button" className="button access-guard__button" onClick={returnToRegistration}>
+          Регистрация бетіне қайту
+        </button>
       </section>
     </main>
   );
@@ -124,9 +127,6 @@ const ProfilePage = lazy(() =>
   import('./pages/ProfileSummaryPage').then((module) => ({ default: module.ProfileSummaryPage })),
 );
 const AiStudioPage = lazy(() => import('./pages/AiStudioPage').then((module) => ({ default: module.AiStudioPage })));
-const OrganizationProfilePage = lazy(() =>
-  import('./pages/OrganizationProfilePage').then((module) => ({ default: module.OrganizationProfilePage })),
-);
 const OrganizationsPage = lazy(() =>
   import('./pages/OrganizationsPage').then((module) => ({ default: module.OrganizationsPage })),
 );
@@ -148,10 +148,6 @@ const ProtectedApp = () => {
   const { user, logout } = useAuth();
   const [deviceState, setDeviceState] = useState(detectDeviceState);
 
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
   useEffect(() => {
     const syncDeviceState = () => setDeviceState(detectDeviceState());
 
@@ -162,6 +158,10 @@ const ProtectedApp = () => {
       window.removeEventListener('resize', syncDeviceState);
     };
   }, []);
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
 
   if (BLOCKED_MOBILE_ROLES.includes(user.role) && deviceState.isPhoneDevice) {
     return <AccessGuardPage variant="phone" />;
@@ -215,14 +215,6 @@ const App = () => {
             />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/ai" element={<AiStudioPage />} />
-            <Route
-              path="/organization"
-              element={
-                <RoleBoundary allow={['organization']}>
-                  <OrganizationProfilePage />
-                </RoleBoundary>
-              }
-            />
             <Route
               path="/organizations"
               element={

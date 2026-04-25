@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { CSSProperties } from 'react';
 
 import { Button } from '../components/ui/Button';
@@ -17,10 +17,11 @@ const logoGradientStyle = (offset?: string): CSSProperties => ({
 
 export const AuthPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, register } = useAuth();
   const { t } = useTranslation();
   const { pushToast } = useToast();
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [mode, setMode] = useState<AuthMode>(searchParams.get('mode') === 'register' ? 'register' : 'login');
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     fullName: '',

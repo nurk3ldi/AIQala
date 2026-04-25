@@ -1,5 +1,5 @@
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Building2, CircleCheckBig, ImageUp, LogOut, Mail, MapPinned, PencilLine, Shield, Trash2, X } from 'lucide-react';
 
 import type { AppShellOutletContext } from '../components/layout/AppShellBare';
@@ -14,6 +14,7 @@ import { formatRoleLabel, resolveFileUrl } from '../lib/format';
 
 export const ProfileSummaryPage = () => {
   const { user, setUser, logout } = useAuth();
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { pushToast } = useToast();
   const { selectedCity } = useOutletContext<AppShellOutletContext>();
@@ -28,6 +29,11 @@ export const ProfileSummaryPage = () => {
     currentPassword: '',
     newPassword: '',
   });
+
+  const handleLogout = () => {
+    logout();
+    navigate('/auth', { replace: true });
+  };
 
   useEffect(() => {
     if (!user) {
@@ -210,7 +216,7 @@ export const ProfileSummaryPage = () => {
       <section className="profile-minimal">
         <header className="profile-minimal__topbar">
           <h1 className="profile-minimal__title">{t('layout.nav.profile')}</h1>
-          <Button type="button" variant="secondary" size="sm" className="profile-minimal__logout" onClick={logout}>
+          <Button type="button" variant="secondary" size="sm" className="profile-minimal__logout" onClick={handleLogout}>
             <LogOut size={15} strokeWidth={1.9} />
             <span>{t('layout.logout')}</span>
           </Button>

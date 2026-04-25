@@ -5,7 +5,6 @@ import { useLocation } from 'react-router-dom';
 import {
   Bell,
   Building,
-  Building2,
   ChartColumn,
   CirclePlus,
   Home,
@@ -57,7 +56,6 @@ const navigation: NavigationItem[] = [
   { to: '/', labelKey: 'layout.nav.home', icon: Home, roles: ['admin', 'organization', 'user'] },
   { to: '/requests', labelKey: 'layout.nav.requests', icon: LayoutGrid, roles: ['admin', 'organization', 'user'] },
   { to: '/requests/new', labelKey: 'layout.nav.create', icon: CirclePlus, roles: ['user'] },
-  { to: '/organization', labelKey: 'layout.nav.workspace', icon: Building2, roles: ['organization'] },
   { to: '/organizations', labelKey: 'layout.nav.organizations', icon: Building, roles: ['admin'] },
   { to: '/catalog', labelKey: 'layout.nav.catalog', icon: MapPinned, roles: ['admin'] },
   { to: '/analytics', labelKey: 'layout.nav.analytics', icon: ChartColumn, roles: ['admin'] },

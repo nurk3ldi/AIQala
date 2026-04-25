@@ -690,6 +690,11 @@ export const HomeMapDonutPage = () => {
                             <span>{`${activeMediaIndex + 1} / ${activeIssueMedia.length}`}</span>
                           </div>
                           <article className="home-minimal__detail-media-item">
+                            {currentMedia.uploadedByOrganizationId ? (
+                              <span className="home-minimal__detail-media-owner">
+                                {t('requestDetail.organizationUploadedPhoto')}
+                              </span>
+                            ) : null}
                             {currentMedia.type === 'image' ? (
                               <img src={resolveFileUrl(currentMedia.fileUrl)} alt={activeIssue.title || t('requestDetail.mediaTitle')} />
                             ) : (

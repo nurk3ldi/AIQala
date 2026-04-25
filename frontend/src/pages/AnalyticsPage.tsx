@@ -1,4 +1,4 @@
-import { Activity, Building2, CircleGauge, Clock3, MapPinned } from 'lucide-react';
+import { Activity, AlertCircle, Building2, CheckCircle2, CircleGauge, Clock3, Layers3, MapPinned, TimerReset, TrendingUp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Badge } from '../components/ui/Badge';
@@ -220,6 +220,109 @@ const ANALYTICS_COPY: Record<Language, AnalyticsCopy> = {
 };
 
 
+const ANALYTICS_COPY_FIX: Record<Language, AnalyticsCopy> = {
+  kk: {
+    loading: 'Аналитика жүктеліп жатыр...',
+    loadFailed: 'Аналитика жүктелмеді',
+    live: 'Тікелей дерек',
+    overview: 'Операциялық аналитика',
+    title: 'Қала өтінімдерінің толық көрінісі',
+    description: 'Өтінімдер, санаттар, аймақтар және ұйымдар бойынша нақты уақытқа жақын жинақталған көрсеткіштер.',
+    trendTitle: 'Өтінімдер ағыны',
+    trendDescription: 'Соңғы 12 күндегі жаңа және шешілген өтінімдердің қарқыны.',
+    last12Days: 'Соңғы 12 күн',
+    totalRequests: 'Барлық өтінімдер',
+    resolvedRate: 'Шешілу үлесі',
+    averageResolution: 'Орташа шешілу уақыты',
+    activeOrganizations: 'Белсенді ұйымдар',
+    categoryTitle: 'Санаттар бойынша жүктеме',
+    categoryDescription: 'Қай бағытқа сұраныс көбірек түсіп жатқанын көрсетеді.',
+    statusTitle: 'Статус құрылымы',
+    statusDescription: 'Қабылданған, өңдеудегі және шешілген өтінімдердің үлесі.',
+    assignmentTitle: 'Тағайындау тәртібі',
+    priorityTitle: 'Маңыздылық деңгейі',
+    coverageTitle: 'География және орындаушылар',
+    coverageDescription: 'Қалалар, ұйымдар және анықтамалық қамту көлемі.',
+    platformScope: 'Платформа ауқымы',
+    topCities: 'Жетекші қалалар',
+    topOrganizations: 'Жетекші ұйымдар',
+    recentTitle: 'Соңғы өтінімдер',
+    recentDescription: 'Жүйеге ең соңғы түскен өтінімдердің қысқаша тізімі.',
+    emptyCategories: 'Санаттық дерек әлі жиналмаған.',
+    emptyRecentTitle: 'Өтінімдер әлі жоқ',
+    emptyRecentDescription: 'Жаңа өтінімдер түскен кезде олар осы кестеде көрінеді.',
+    comments: 'Пікірлер',
+    media: 'Медиа',
+    categories: 'Санаттар',
+    cities: 'Қалалар',
+    districts: 'Аудандар',
+    organizations: 'Ұйымдар',
+    assigned: 'Тағайындалған',
+    unassigned: 'Тағайындалмаған',
+    noOrganization: 'Тағайындалмаған',
+    requestLabel: 'өтінім',
+    headers: {
+      request: 'Өтінім',
+      location: 'Орналасуы',
+      status: 'Статус',
+      priority: 'Маңыздылық',
+      organization: 'Ұйым',
+      created: 'Уақыты',
+    },
+  },
+  ru: {
+    loading: 'Загрузка аналитики...',
+    loadFailed: 'Не удалось загрузить аналитику',
+    live: 'Живые данные',
+    overview: 'Операционная аналитика',
+    title: 'Полная картина городских обращений',
+    description: 'Сводные показатели по обращениям, категориям, территориям и организациям на основе backend-данных.',
+    trendTitle: 'Поток обращений',
+    trendDescription: 'Динамика новых и завершенных обращений за последние 12 дней.',
+    last12Days: 'Последние 12 дней',
+    totalRequests: 'Всего обращений',
+    resolvedRate: 'Доля решенных',
+    averageResolution: 'Среднее время решения',
+    activeOrganizations: 'Активные организации',
+    categoryTitle: 'Нагрузка по категориям',
+    categoryDescription: 'Показывает, в какие направления поступает больше всего обращений.',
+    statusTitle: 'Структура статусов',
+    statusDescription: 'Распределение принятых, обрабатываемых и решенных обращений.',
+    assignmentTitle: 'Назначение',
+    priorityTitle: 'Уровень приоритета',
+    coverageTitle: 'География и исполнители',
+    coverageDescription: 'Города, организации и охват справочников платформы.',
+    platformScope: 'Охват платформы',
+    topCities: 'Ведущие города',
+    topOrganizations: 'Ведущие организации',
+    recentTitle: 'Последние обращения',
+    recentDescription: 'Краткий список последних обращений, поступивших в систему.',
+    emptyCategories: 'Данные по категориям пока не накоплены.',
+    emptyRecentTitle: 'Обращений пока нет',
+    emptyRecentDescription: 'Когда появятся новые обращения, они отобразятся в этой таблице.',
+    comments: 'Комментарии',
+    media: 'Медиа',
+    categories: 'Категории',
+    cities: 'Города',
+    districts: 'Районы',
+    organizations: 'Организации',
+    assigned: 'Назначено',
+    unassigned: 'Не назначено',
+    noOrganization: 'Не назначено',
+    requestLabel: 'обращ.',
+    headers: {
+      request: 'Обращение',
+      location: 'Локация',
+      status: 'Статус',
+      priority: 'Приоритет',
+      organization: 'Организация',
+      created: 'Время',
+    },
+  },
+  en: ANALYTICS_COPY.en,
+};
+
+
 const STATUS_ORDER: RequestStatus[] = ['accepted', 'in_progress', 'resolved'];
 const PRIORITY_ORDER: RequestPriority[] = ['high', 'medium', 'low'];
 
@@ -264,7 +367,7 @@ export const AnalyticsPage = () => {
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
 
-  const copy = ANALYTICS_COPY[language];
+  const copy = ANALYTICS_COPY_FIX[language];
 
   useEffect(() => {
     let active = true;
@@ -401,7 +504,7 @@ export const AnalyticsPage = () => {
     {
       label: copy.totalRequests,
       value: formatCompactNumber(totalRequests),
-      icon: Activity,
+      icon: TrendingUp,
       series: trendValues,
     },
     {
@@ -413,7 +516,7 @@ export const AnalyticsPage = () => {
     {
       label: copy.averageResolution,
       value: `${averageResolutionTimeHours.toFixed(1)}h`,
-      icon: Clock3,
+      icon: TimerReset,
       series: resolvedTrendValues,
     },
     {
@@ -424,16 +527,43 @@ export const AnalyticsPage = () => {
     },
   ];
 
+  const statusCards = [
+    {
+      key: 'all',
+      label: copy.totalRequests,
+      value: totalRequests,
+      icon: Layers3,
+      tone: 'all',
+    },
+    {
+      key: 'accepted',
+      label: t('requestStatusShort.accepted'),
+      value: acceptedRequestsCount,
+      icon: AlertCircle,
+      tone: 'accepted',
+    },
+    {
+      key: 'in_progress',
+      label: t('requestStatusShort.in_progress'),
+      value: inProgressRequestsCount,
+      icon: Clock3,
+      tone: 'in-progress',
+    },
+    {
+      key: 'resolved',
+      label: t('requestStatusShort.resolved'),
+      value: resolvedRequestsCount,
+      icon: CheckCircle2,
+      tone: 'resolved',
+    },
+  ];
+
   return (
     <div className="page analytics-dashboard admin-surface admin-surface--analytics">
       <section className="analytics-hero glass-card admin-surface__hero">
         <div className="analytics-hero__copy admin-surface__hero-copy">
-          <span className="admin-surface__eyebrow">{t('analytics.eyebrow')}</span>
           <div className="admin-surface__hero-heading">
-            <h1>{t('analytics.title')}</h1>
-            <p className="analytics-page__subtitle" aria-label={copy.title} title={copy.title}>
-              {t('analytics.description')}
-            </p>
+            <h1>{t('layout.nav.analytics')}</h1>
           </div>
         </div>
 
@@ -451,6 +581,24 @@ export const AnalyticsPage = () => {
             {activeOrganizationsCount}
           </span>
         </div>
+      </section>
+
+      <section className="analytics-status-strip" aria-label={copy.statusTitle}>
+        {statusCards.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <article key={item.key} className={`analytics-status-card analytics-status-card--${item.tone}`}>
+              <span className="analytics-status-card__icon">
+                <Icon size={20} />
+              </span>
+              <div>
+                <strong>{item.label}</strong>
+                <span>{formatCompactNumber(item.value)}</span>
+              </div>
+            </article>
+          );
+        })}
       </section>
 
       <section className="analytics-top-grid">

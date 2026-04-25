@@ -1,4 +1,6 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { useState, type ChangeEvent, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+
+import { useTranslation } from '../../context/language-context';
 
 interface FieldShellProps {
   label: string;
@@ -22,11 +24,42 @@ interface InputFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
-export const InputField = ({ label, hint, error, className = '', ...props }: InputFieldProps) => (
-  <FieldShell label={label} hint={hint} error={error}>
-    <input className={`input ${className}`.trim()} {...props} />
-  </FieldShell>
-);
+export const InputField = ({ label, hint, error, className = '', type, onChange, multiple, ...props }: InputFieldProps) => {
+  const { t } = useTranslation();
+  const [selectedFilesLabel, setSelectedFilesLabel] = useState('');
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.currentTarget.files ?? []);
+    setSelectedFilesLabel(files.map((file) => file.name).join(', '));
+    onChange?.(event);
+  };
+
+  if (type === 'file') {
+    return (
+      <FieldShell label={label} hint={hint} error={error}>
+        <span className="field__file-picker">
+          <span className="field__file-action">{t('common.chooseFile')}</span>
+          <span className={`field__file-name ${selectedFilesLabel ? '' : 'field__file-name--empty'}`.trim()}>
+            {selectedFilesLabel || t('common.noFileChosen')}
+          </span>
+          <input
+            className={`input input--file-native ${className}`.trim()}
+            type="file"
+            multiple={multiple}
+            onChange={handleFileChange}
+            {...props}
+          />
+        </span>
+      </FieldShell>
+    );
+  }
+
+  return (
+    <FieldShell label={label} hint={hint} error={error}>
+      <input className={`input ${className}`.trim()} type={type} onChange={onChange} {...props} />
+    </FieldShell>
+  );
+};
 
 interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label: string;
