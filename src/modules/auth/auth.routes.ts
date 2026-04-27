@@ -17,5 +17,6 @@ const authController = new AuthController(authService);
 
 router.post('/register', authRateLimiter, validateRequest({ body: RegisterDto }), asyncHandler(authController.register));
 router.post('/login', authRateLimiter, validateRequest({ body: LoginDto }), asyncHandler(authController.login));
+router.post('/mobile/login', authRateLimiter, validateRequest({ body: LoginDto }), asyncHandler(authController.mobileLogin));
 
 export const authRouter = router;

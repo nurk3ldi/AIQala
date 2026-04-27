@@ -2,6 +2,10 @@ node_modules
 dist
 .env
 frontend/.env
+mobile/.env
+mobile/node_modules
+mobile/.expo
+mobile/dist
 uploads/*
 !uploads/.gitkeep
 npm-debug.log*

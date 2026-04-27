@@ -62,6 +62,16 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
+  async loginMobileUser(payload: LoginDto, ipAddress: string) {
+    const result = await this.login(payload, ipAddress);
+
+    if (result.user.role !== UserRole.USER || result.user.organizationId) {
+      throw new AppError(403, 'MOBILE_FORBIDDEN', 'Мобильное приложение доступно только обычным пользователям');
+    }
+
+    return result;
+  }
+
   private buildAuthResponse(user: {
     id: string;
     email: string;

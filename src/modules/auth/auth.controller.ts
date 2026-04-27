@@ -23,4 +23,16 @@ export class AuthController {
       data: result,
     });
   };
+
+  mobileLogin = async (request: Request, response: Response): Promise<void> => {
+    const result = await this.authService.loginMobileUser(
+      request.body as LoginDto,
+      request.ip ?? request.socket.remoteAddress ?? 'unknown',
+    );
+
+    response.status(200).json({
+      success: true,
+      data: result,
+    });
+  };
 }
