@@ -24,11 +24,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   let response: Response;
 
+  const isFormData = requestOptions.body instanceof FormData;
+
   try {
     response = await fetch(url.toString(), {
       ...requestOptions,
       headers: {
-        'Content-Type': 'application/json',
+        ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },

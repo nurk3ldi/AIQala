@@ -13,7 +13,7 @@ export default function App() {
 
   const renderContent = () => {
     if (auth) {
-      return <MainTabsScreen auth={auth} />;
+      return <MainTabsScreen auth={auth} onAuthUpdate={setAuth} onLogout={() => setAuth(null)} />;
     }
 
     if (hasSeenOnboarding) {

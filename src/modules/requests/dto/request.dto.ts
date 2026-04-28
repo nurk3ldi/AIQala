@@ -94,7 +94,7 @@ export class UpdateRequestDto {
 
   @IsOptional()
   @IsUUID()
-  districtId?: string;
+  districtId?: string | null;
 
   @IsOptional()
   @IsUUID()

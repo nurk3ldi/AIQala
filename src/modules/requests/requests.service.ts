@@ -228,7 +228,8 @@ export class RequestsService {
     }
 
     const nextCityId = payload.cityId ?? request.cityId;
-    const nextDistrictId = payload.districtId ?? request.districtId;
+    const hasDistrictUpdate = Object.prototype.hasOwnProperty.call(payload, 'districtId');
+    const nextDistrictId = hasDistrictUpdate ? (payload.districtId ?? null) : request.districtId;
     const nextCategoryId = payload.categoryId ?? request.categoryId;
     const nextOrganizationId = payload.organizationId ?? request.organizationId;
 
