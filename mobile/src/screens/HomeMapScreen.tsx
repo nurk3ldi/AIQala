@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, UrlTile } from 'react-native-maps';
+import * as Location from 'expo-location';
 
 import { env } from '../config/env';
 import { AuthResult } from '../services/auth';
@@ -15,6 +17,11 @@ type HomeMapScreenProps = {
 type MapIssue = IssueRequest & {
   lat: number;
   lng: number;
+};
+
+type UserLocation = {
+  latitude: number;
+  longitude: number;
 };
 
 const DEFAULT_REGION = {
@@ -68,6 +75,42 @@ export function HomeMapScreen({ auth, onProfilePress }: HomeMapScreenProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
+  const [hideIssues, setHideIssues] = useState(false);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const mapRef = useRef<MapView | null>(null);
+  const [region, setRegion] = useState<typeof DEFAULT_REGION>(DEFAULT_REGION);
+
+  useEffect(() => {
+    let active = true;
+
+    const requestLocationPermission = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        
+        if (status !== 'granted') {
+          return;
+        }
+
+        const location = await Location.getCurrentPositionAsync({});
+        
+        if (active) {
+          setUserLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+        }
+      } catch (err) {
+        // геолокация алмасқан кезде мол әрі қарай жүргін
+        console.error('Location error:', err);
+      }
+    };
+
+    void requestLocationPermission();
+    
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -117,10 +160,67 @@ export function HomeMapScreen({ auth, onProfilePress }: HomeMapScreenProps) {
     [issues],
   );
 
+  const handleResetHeading = () => {
+    if (!mapRef.current) return;
+    const center = userLocation ?? { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude };
+
+    try {
+      mapRef.current.animateCamera({ center, heading: 0 }, { duration: 500 });
+    } catch (e) {
+      // fallback: just animate to region
+      mapRef.current.animateToRegion({ latitude: center.latitude, longitude: center.longitude, latitudeDelta: DEFAULT_REGION.latitudeDelta, longitudeDelta: DEFAULT_REGION.longitudeDelta }, 500);
+    }
+  };
+
+  const handleCenterOnUser = () => {
+    if (!mapRef.current || !userLocation) return;
+
+    mapRef.current.animateToRegion({
+      latitude: userLocation.latitude,
+      longitude: userLocation.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    }, 500);
+  };
+
+  const ZOOM_FACTOR = 0.5;
+
+  const handleZoomIn = () => {
+    if (!mapRef.current || !region) return;
+
+    const newLatDelta = Math.max(region.latitudeDelta * ZOOM_FACTOR, 0.0005);
+    const newLongDelta = Math.max(region.longitudeDelta * ZOOM_FACTOR, 0.0005);
+
+    const next = { ...region, latitudeDelta: newLatDelta, longitudeDelta: newLongDelta };
+    setRegion(next);
+    try {
+      mapRef.current.animateToRegion(next, 300);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (!mapRef.current || !region) return;
+
+    const newLatDelta = Math.min(region.latitudeDelta / ZOOM_FACTOR, 100);
+    const newLongDelta = Math.min(region.longitudeDelta / ZOOM_FACTOR, 100);
+
+    const next = { ...region, latitudeDelta: newLatDelta, longitudeDelta: newLongDelta };
+    setRegion(next);
+    try {
+      mapRef.current.animateToRegion(next, 300);
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <MapView
-        initialRegion={DEFAULT_REGION}
+        ref={(r) => (mapRef.current = r)}
+        initialRegion={region}
+        onRegionChangeComplete={(r) => setRegion(r)}
         mapType="standard"
         showsCompass={false}
         showsMyLocationButton={false}
@@ -143,7 +243,28 @@ export function HomeMapScreen({ auth, onProfilePress }: HomeMapScreenProps) {
               <View style={styles.markerCore} />
             </View>
           </Marker>
-        ))}
+        ))
+        .filter(() => !hideIssues)}
+
+        {userLocation && (
+          <Marker
+            coordinate={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
+            title="Менің орным"
+          >
+            <View style={styles.userLocationContainer}>
+              <View style={styles.userLocationPulse} />
+              <View style={styles.userLocationMarker}>
+                {auth.user.avatarUrl ? (
+                  <Image source={{ uri: `${env.apiUrl}${auth.user.avatarUrl}` }} style={styles.userLocationAvatar} />
+                ) : (
+                  <View style={styles.userLocationAvatarPlaceholder}>
+                    <Text style={styles.userLocationAvatarText}>{auth.user.fullName.charAt(0).toUpperCase()}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </Marker>
+        )}
       </MapView>
 
       <Pressable style={styles.profileButton} onPress={onProfilePress}>
@@ -155,6 +276,28 @@ export function HomeMapScreen({ auth, onProfilePress }: HomeMapScreenProps) {
           </View>
         )}
       </Pressable>
+
+      <Pressable style={styles.toggleButton} onPress={() => setHideIssues(!hideIssues)}>
+        <Ionicons name={hideIssues ? 'eye-off' : 'eye'} size={24} color={colors.accent} />
+      </Pressable>
+
+      <View style={styles.bottomButtons}>
+        <Pressable style={styles.smallButton} onPress={handleResetHeading}>
+          <Ionicons name="compass" size={20} color={colors.accent} />
+        </Pressable>
+        <Pressable style={[styles.smallButton, { marginTop: 10 }]} onPress={handleCenterOnUser}>
+          <Ionicons name="locate" size={20} color={colors.accent} />
+        </Pressable>
+      </View>
+
+      <View style={styles.zoomControls}>
+        <Pressable style={styles.smallButton} onPress={handleZoomIn}>
+          <Ionicons name="add" size={20} color={colors.accent} />
+        </Pressable>
+        <Pressable style={[styles.smallButton, { marginTop: 10 }]} onPress={handleZoomOut}>
+          <Ionicons name="remove" size={20} color={colors.accent} />
+        </Pressable>
+      </View>
 
       {loading ? (
         <View style={styles.statePanel}>
@@ -201,9 +344,26 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
+  toggleButton: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.black,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
   profileAvatar: {
-    width: '100%',
-    height: '100%',
+    width: '80%',
+    height: '80%',
     borderRadius: 25,
   },
   profileAvatarPlaceholder: {
@@ -319,5 +479,76 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 13,
     fontWeight: '800',
+  },
+  userLocationContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userLocationPulse: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.accent,
+    opacity: 0.3,
+  },
+  userLocationMarker: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: colors.white,
+    shadowColor: colors.black,
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    overflow: 'hidden',
+  },
+  userLocationAvatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
+  },
+  userLocationAvatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userLocationAvatarText: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  bottomButtons: {
+    position: 'absolute',
+    bottom: 18,
+    right: 14,
+    alignItems: 'center',
+  },
+  smallButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.black,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  zoomControls: {
+    position: 'absolute',
+    right: 14,
+    top: '50%',
+    marginTop: -55,
+    alignItems: 'center',
   },
 });
