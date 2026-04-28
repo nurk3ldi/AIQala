@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, UrlTile } from 'react-native-maps';
 
+import { env } from '../config/env';
 import { AuthResult } from '../services/auth';
 import { IssueRequest, RequestStatus, listMapRequests } from '../services/requests';
 import { colors } from '../theme/colors';
 
 type HomeMapScreenProps = {
   auth: AuthResult;
+  onProfilePress?: () => void;
 };
 
 type MapIssue = IssueRequest & {
@@ -61,7 +63,7 @@ const normalizeIssues = (issues: IssueRequest[]) =>
     return accumulator;
   }, []);
 
-export function HomeMapScreen({ auth }: HomeMapScreenProps) {
+export function HomeMapScreen({ auth, onProfilePress }: HomeMapScreenProps) {
   const [issues, setIssues] = useState<MapIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -144,19 +146,15 @@ export function HomeMapScreen({ auth }: HomeMapScreenProps) {
         ))}
       </MapView>
 
-      <View style={styles.overlay}>
-        <View style={styles.cityPill}>
-          <Text style={styles.cityText}>Қазақстан</Text>
-        </View>
-        <View style={styles.legend}>
-          {(Object.keys(statusLabels) as RequestStatus[]).map((status) => (
-            <View key={status} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: statusColors[status] }]} />
-              <Text style={styles.legendText}>{counts[status]}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+      <Pressable style={styles.profileButton} onPress={onProfilePress}>
+        {auth.user.avatarUrl ? (
+          <Image source={{ uri: `${env.apiUrl}${auth.user.avatarUrl}` }} style={styles.profileAvatar} resizeMode="cover" />
+        ) : (
+          <View style={styles.profileAvatarPlaceholder}>
+            <Text style={styles.profileAvatarText}>{auth.user.fullName.charAt(0).toUpperCase()}</Text>
+          </View>
+        )}
+      </Pressable>
 
       {loading ? (
         <View style={styles.statePanel}>
@@ -184,6 +182,41 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
+  },
+  profileButton: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: colors.black,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  profileAvatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 25,
+  },
+  profileAvatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileAvatarText: {
+    color: colors.white,
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   overlay: {
     position: 'absolute',

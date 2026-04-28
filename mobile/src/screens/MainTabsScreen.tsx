@@ -10,7 +10,7 @@ type MainTabsScreenProps = {
   auth: AuthResult;
 };
 
-type TabKey = 'home' | 'requests' | 'create' | 'chat';
+type TabKey = 'home' | 'requests' | 'create' | 'chat' | 'profile';
 
 type TabItem = {
   key: TabKey;
@@ -40,12 +40,14 @@ const screenTitles: Record<Exclude<TabKey, 'home'>, string> = {
   requests: 'Өтінімдер',
   create: 'Жаңа өтінім құру',
   chat: 'Чат',
+  profile: 'Профиль',
 };
 
 const screenSubtitles: Record<Exclude<TabKey, 'home'>, string> = {
   requests: 'Өтінімдеріңіз осы жерде болады',
   create: 'Мәселені тіркеу формасы осында ашылады',
   chat: 'AIQala көмекшісімен сөйлесу',
+  profile: 'Өз профиліңіздің мәліметтері',
 };
 
 export function MainTabsScreen({ auth }: MainTabsScreenProps) {
@@ -55,7 +57,7 @@ export function MainTabsScreen({ auth }: MainTabsScreenProps) {
     <View style={styles.screen}>
       <View style={styles.content}>
         {activeTab === 'home' ? (
-          <HomeMapScreen auth={auth} />
+          <HomeMapScreen auth={auth} onProfilePress={() => setActiveTab('profile')} />
         ) : (
           <View style={styles.placeholder}>
             <Text style={styles.brand}>AIQala</Text>
