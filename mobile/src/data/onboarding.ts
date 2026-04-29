@@ -1,19 +1,21 @@
+import { TranslationKey } from '../theme/LanguageContext';
+
 export type OnboardingItem = {
   kicker: string;
-  title: string;
+  titleKey: TranslationKey;
 };
 
 export const onboardingItems: OnboardingItem[] = [
   {
     kicker: 'AIQala',
-    title: 'Добро пожаловать в AIQala',
+    titleKey: 'onboardingTitle1',
   },
   {
     kicker: 'AIQala',
-    title: 'Сообщайте о проблемах быстро',
+    titleKey: 'onboardingTitle2',
   },
   {
     kicker: 'AIQala',
-    title: 'Следите за статусом заявки',
+    titleKey: 'onboardingTitle3',
   },
 ];

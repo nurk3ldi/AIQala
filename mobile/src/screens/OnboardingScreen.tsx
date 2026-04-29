@@ -5,13 +5,18 @@ import { AccentButton } from '../components/AccentButton';
 import { OnboardingSlide } from '../components/OnboardingSlide';
 import { ProgressDots } from '../components/ProgressDots';
 import { onboardingItems } from '../data/onboarding';
-import { colors } from '../theme/colors';
+import { ThemeColors, lightColors } from '../theme/colors';
+import { useLanguage } from '../theme/LanguageContext';
+import { useTheme } from '../theme/ThemeContext';
 
 type OnboardingScreenProps = {
   onFinish: () => void;
 };
 
 export function OnboardingScreen({ onFinish }: OnboardingScreenProps) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  styles = createStyles(theme.colors);
   const [activeIndex, setActiveIndex] = useState(0);
   const activeItem = onboardingItems[activeIndex];
   const isLastSlide = activeIndex === onboardingItems.length - 1;
@@ -40,17 +45,17 @@ export function OnboardingScreen({ onFinish }: OnboardingScreenProps) {
             onPress={handleSkip}
             style={({ pressed }) => [styles.skipButton, pressed && styles.skipButtonPressed]}
           >
-            <Text style={styles.skipText}>Пропустить</Text>
+            <Text style={styles.skipText}>{t('onboardingSkip')}</Text>
           </Pressable>
           <ProgressDots activeIndex={activeIndex} count={onboardingItems.length} />
         </View>
-        <AccentButton label={isLastSlide ? 'Начать' : 'Далее'} onPress={handleNext} />
+        <AccentButton label={isLastSlide ? t('onboardingStart') : t('onboardingNext')} onPress={handleNext} />
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -80,3 +85,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+let styles = createStyles(lightColors);

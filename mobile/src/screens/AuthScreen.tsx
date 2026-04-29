@@ -12,7 +12,9 @@ import {
 } from 'react-native';
 
 import { AuthResult, login, register } from '../services/auth';
-import { colors } from '../theme/colors';
+import { ThemeColors, lightColors } from '../theme/colors';
+import { useLanguage } from '../theme/LanguageContext';
+import { useTheme } from '../theme/ThemeContext';
 
 type AuthMode = 'login' | 'register';
 
@@ -39,6 +41,11 @@ function PasswordInput({
   textContentType,
   value,
 }: PasswordInputProps) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const colors = theme.colors;
+  styles = createStyles(colors);
+
   return (
     <View style={styles.passwordField}>
       <TextInput
@@ -52,7 +59,7 @@ function PasswordInput({
         value={value}
       />
       <Pressable
-        accessibilityLabel={isVisible ? 'Скрыть пароль' : 'Показать пароль'}
+        accessibilityLabel={isVisible ? t('passwordHide') : t('passwordShow')}
         accessibilityRole="button"
         disabled={!editable}
         onPress={onToggleVisible}
@@ -69,6 +76,10 @@ function PasswordInput({
 }
 
 export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const colors = theme.colors;
+  styles = createStyles(colors);
   const [mode, setMode] = useState<AuthMode>('login');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -85,17 +96,17 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setError('');
 
     if (isRegister && fullName.trim().length < 2) {
-      setError('Введите имя');
+      setError(t('unnamed'));
       return;
     }
 
     if (!email.trim() || password.length < 8) {
-      setError('Введите email и пароль минимум 8 символов');
+      setError(t('emailPasswordRequired'));
       return;
     }
 
     if (isRegister && password !== confirmPassword) {
-      setError('Пароли не совпадают');
+      setError(t('passwordsMismatch'));
       return;
     }
 
@@ -115,7 +126,7 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
       onAuthSuccess(result);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Ошибка авторизации');
+      setError(submitError instanceof Error ? submitError.message : t('error'));
     } finally {
       setIsSubmitting(false);
     }
@@ -137,7 +148,7 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     >
       <View style={styles.header}>
         <Text style={styles.brand}>AIQala</Text>
-        <Text style={styles.title}>{isRegister ? 'Создать аккаунт' : 'Войти в аккаунт'}</Text>
+        <Text style={styles.title}>{isRegister ? t('createAccount') : t('loginTitle')}</Text>
       </View>
 
       <View style={styles.form}>
@@ -146,7 +157,7 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
             autoCapitalize="words"
             editable={!isSubmitting}
             onChangeText={setFullName}
-            placeholder="Имя"
+            placeholder={t('fullName')}
             placeholderTextColor={colors.muted}
             style={styles.input}
             value={fullName}
@@ -171,7 +182,7 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           isVisible={isPasswordVisible}
           onChangeText={setPassword}
           onToggleVisible={() => setIsPasswordVisible((current) => !current)}
-          placeholder="Пароль"
+          placeholder={t('password')}
           textContentType={isRegister ? 'newPassword' : 'password'}
           value={password}
         />
@@ -182,7 +193,7 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
             isVisible={isConfirmPasswordVisible}
             onChangeText={setConfirmPassword}
             onToggleVisible={() => setIsConfirmPasswordVisible((current) => !current)}
-            placeholder="Повторите пароль"
+            placeholder={t('passwordRepeat')}
             textContentType="newPassword"
             value={confirmPassword}
           />
@@ -203,7 +214,7 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           {isSubmitting ? (
             <ActivityIndicator color={colors.white} />
           ) : (
-            <Text style={styles.primaryButtonText}>{isRegister ? 'Зарегистрироваться' : 'Войти'}</Text>
+            <Text style={styles.primaryButtonText}>{isRegister ? t('register') : t('login')}</Text>
           )}
         </Pressable>
 
@@ -214,7 +225,7 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
         >
           <Text style={styles.secondaryButtonText}>
-            {isRegister ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Регистрация'}
+            {isRegister ? t('alreadyAccount') : t('noAccount')}
           </Text>
         </Pressable>
       </View>
@@ -222,7 +233,7 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -253,7 +264,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     color: colors.text,
     fontSize: 16,
     paddingHorizontal: 18,
@@ -263,7 +274,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 18,
@@ -318,3 +329,5 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
+
+let styles = createStyles(lightColors);

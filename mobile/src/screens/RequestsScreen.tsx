@@ -24,28 +24,19 @@ import {
   listRequests,
   updateRequest,
 } from '../services/requests';
-import { colors } from '../theme/colors';
+import { ThemeColors, lightColors } from '../theme/colors';
+import { AnimatedListItem, AnimatedScreen } from '../components/AnimatedPrimitives';
+import { useLanguage } from '../theme/LanguageContext';
+import { useTheme } from '../theme/ThemeContext';
 
 type RequestsScreenProps = {
   auth: AuthResult;
-};
-
-const statusLabels: Record<RequestStatus, string> = {
-  accepted: 'Жаңа',
-  in_progress: 'Орындалуда',
-  resolved: 'Шешілді',
 };
 
 const statusColors: Record<RequestStatus, string> = {
   accepted: '#dc2626',
   in_progress: '#ca8a04',
   resolved: '#15803d',
-};
-
-const priorityLabels: Record<RequestPriority, string> = {
-  low: 'Төмен',
-  medium: 'Орташа',
-  high: 'Жоғары',
 };
 
 const priorityColors: Record<RequestPriority, string> = {
@@ -55,7 +46,7 @@ const priorityColors: Record<RequestPriority, string> = {
 };
 
 const formatDate = (value?: string) => {
-  if (!value) return 'Көрсетілмеген';
+  if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat('kk-KZ', {
@@ -92,6 +83,10 @@ const buildPhotoFile = (asset: ImagePicker.ImagePickerAsset): PickedPhoto => {
 };
 
 export function RequestsScreen({ auth }: RequestsScreenProps) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const colors = theme.colors;
+  styles = createStyles(colors);
   const [items, setItems] = React.useState<IssueRequest[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [page, setPage] = React.useState(1);
@@ -173,7 +168,7 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
         setTotalPages(result.meta.totalPages || 1);
       } catch (error) {
         if (active) {
-          Alert.alert('Қате', error instanceof Error ? error.message : 'Өтінімдерді жүктеу мүмкін болмады.');
+          Alert.alert(t('error'), error instanceof Error ? error.message : t('requestsLoadFailed'));
         }
       } finally {
         if (active) setLoading(false);
@@ -234,7 +229,7 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
       setSelected((current) => (current ? { ...current, comments: [...(current.comments ?? []), comment] } : current));
       setCommentText('');
     } catch (error) {
-      Alert.alert('Қате', error instanceof Error ? error.message : 'Комментарий жіберілмеді.');
+      Alert.alert(t('error'), error instanceof Error ? error.message : t('commentSendFailed'));
     } finally {
       setCommentBusy(false);
     }
@@ -284,13 +279,13 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
     const remaining = REQUEST_PHOTO_LIMIT - currentMediaCount - editPhotos.length;
 
     if (remaining <= 0) {
-      Alert.alert('Фото', `Бір өтінімге максимум ${REQUEST_PHOTO_LIMIT} фото қосылады.`);
+      Alert.alert(t('photo'), t('photoLimitText'));
       return;
     }
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Рұқсат керек', 'Фото таңдау үшін галереяға рұқсат беріңіз.');
+      Alert.alert(t('permissionRequired'), t('photoPermissionText'));
       return;
     }
 
@@ -308,7 +303,7 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
   const saveEdit = async () => {
     if (!selected || editBusy) return;
     if (editTitle.trim().length < 4 || editDescription.trim().length < 10 || !editCategoryId || !editCityId) {
-      Alert.alert('Қате', 'Тақырып, сипаттама, санат және қала толық толтырылуы керек.');
+      Alert.alert(t('error'), t('requestFieldsIncomplete'));
       return;
     }
 
@@ -338,17 +333,17 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
       setEditPhotos([]);
       setReloadKey((current) => current + 1);
     } catch (error) {
-      Alert.alert('Қате', error instanceof Error ? error.message : 'Өтінімді сақтау мүмкін болмады.');
+      Alert.alert(t('error'), error instanceof Error ? error.message : t('requestSaveFailed'));
     } finally {
       setEditBusy(false);
     }
   };
 
   const confirmDelete = (request: IssueRequest) => {
-    Alert.alert('Өшіру', 'Өтінімді өшіруді растайсыз ба?', [
-      { text: 'Болдырмау', style: 'cancel' },
+    Alert.alert(t('delete'), t('requestDeleteConfirm'), [
+      { text: t('cancel'), style: 'cancel' },
       {
-        text: 'Өшіру',
+        text: t('delete'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -356,7 +351,7 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
             if (selected?.id === request.id) setSelected(null);
             setReloadKey((current) => current + 1);
           } catch (error) {
-            Alert.alert('Қате', error instanceof Error ? error.message : 'Өтінімді өшіру мүмкін болмады.');
+            Alert.alert(t('error'), error instanceof Error ? error.message : t('requestDeleteFailed'));
           }
         },
       },
@@ -373,45 +368,49 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
   };
 
   const editExistingPhotos = selected?.media?.filter((item) => item.type === 'image' && !item.uploadedByOrganizationId) ?? [];
+  const getStatusLabel = (value: RequestStatus) =>
+    value === 'accepted' ? t('newIssue') : value === 'in_progress' ? t('inProgress') : t('resolved');
+  const getPriorityLabel = (value: RequestPriority) =>
+    value === 'low' ? t('low') : value === 'medium' ? t('medium') : t('high');
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
+      <AnimatedScreen style={styles.header}>
         <View>
-          <Text style={styles.eyebrow}>AIQala</Text>
-          <Text style={styles.title}>Өтінімдер</Text>
+          <Text style={styles.title}>{t('requests')}</Text>
         </View>
         <Pressable style={styles.headerButton} onPress={() => setFilterOpen(true)}>
           <Ionicons name="options-outline" size={22} color={colors.accent} />
         </Pressable>
-      </View>
+      </AnimatedScreen>
 
       <View style={styles.searchBox}>
         <Ionicons name="search" size={18} color={colors.muted} />
-        <TextInput value={search} onChangeText={setSearch} placeholder="Өтінімді іздеу" placeholderTextColor={colors.muted} style={styles.searchInput} />
+        <TextInput value={search} onChangeText={setSearch} placeholder={t('searchRequest')} placeholderTextColor={colors.muted} style={styles.searchInput} />
       </View>
 
       <View style={styles.statusTabs}>
-        <StatusChip label="Барлығы" value={items.length} active={!status} onPress={() => { setStatus(''); setPage(1); }} />
-        <StatusChip label="Жаңа" value={statusCounts.accepted} active={status === 'accepted'} tone={statusColors.accepted} onPress={() => { setStatus('accepted'); setPage(1); }} />
-        <StatusChip label="Жұмыста" value={statusCounts.in_progress} active={status === 'in_progress'} tone={statusColors.in_progress} onPress={() => { setStatus('in_progress'); setPage(1); }} />
-        <StatusChip label="Шешілді" value={statusCounts.resolved} active={status === 'resolved'} tone={statusColors.resolved} onPress={() => { setStatus('resolved'); setPage(1); }} />
+        <StatusChip label={t('all')} value={items.length} active={!status} onPress={() => { setStatus(''); setPage(1); }} />
+        <StatusChip label={t('newIssue')} value={statusCounts.accepted} active={status === 'accepted'} tone={statusColors.accepted} onPress={() => { setStatus('accepted'); setPage(1); }} />
+        <StatusChip label={t('inProgress')} value={statusCounts.in_progress} active={status === 'in_progress'} tone={statusColors.in_progress} onPress={() => { setStatus('in_progress'); setPage(1); }} />
+        <StatusChip label={t('resolved')} value={statusCounts.resolved} active={status === 'resolved'} tone={statusColors.resolved} onPress={() => { setStatus('resolved'); setPage(1); }} />
       </View>
 
       {loading ? (
         <View style={styles.loadingState}>
           <ActivityIndicator color={colors.accent} />
-          <Text style={styles.loadingText}>Өтінімдер жүктелуде...</Text>
+          <Text style={styles.loadingText}>{t('requestsLoading')}</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.listContent}>
-          {visibleItems.map((request) => (
-            <View style={styles.card} key={request.id}>
+          {visibleItems.map((request, index) => (
+            <AnimatedListItem index={index} key={request.id}>
+            <View style={styles.card}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleBlock}>
                   <Text style={styles.cardTitle}>{request.title}</Text>
                   <Text style={styles.cardMeta}>
-                    {request.category?.name ?? 'Санат жоқ'} • {request.city?.name ?? 'Қала жоқ'}
+                    {request.category?.name ?? t('categoryMissing')} • {request.city?.name ?? t('cityMissing')}
                     {request.district?.name ? ` / ${request.district.name}` : ''}
                   </Text>
                 </View>
@@ -419,16 +418,16 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
               </View>
               <Text style={styles.cardDescription} numberOfLines={2}>{request.description}</Text>
               <View style={styles.cardBadges}>
-                <Badge label={statusLabels[request.status]} color={statusColors[request.status]} />
-                {request.priority ? <Badge label={priorityLabels[request.priority]} color={priorityColors[request.priority]} /> : null}
+                <Badge label={getStatusLabel(request.status)} color={statusColors[request.status]} />
+                {request.priority ? <Badge label={getPriorityLabel(request.priority)} color={priorityColors[request.priority]} /> : null}
               </View>
               <Text style={styles.cardFooter}>
-                {request.organization?.name ? `Ұйым: ${request.organization.name}` : 'Тағайындалмаған'} • {formatDate(request.createdAt)}
+                {request.organization?.name ? `${t('organization')}: ${request.organization.name}` : t('notAssigned')} • {formatDate(request.createdAt)}
               </Text>
               <View style={styles.cardActions}>
                 <Pressable style={styles.secondaryAction} onPress={() => void openDetail(request)}>
                   <Ionicons name="eye-outline" size={17} color={colors.accent} />
-                  <Text style={styles.secondaryActionText}>Толығырақ</Text>
+                  <Text style={styles.secondaryActionText}>{t('viewDetails')}</Text>
                 </Pressable>
                 <Pressable style={styles.iconAction} onPress={() => void openEdit(request)}>
                   <Ionicons name="create-outline" size={18} color={colors.accent} />
@@ -438,8 +437,9 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
                 </Pressable>
               </View>
             </View>
+            </AnimatedListItem>
           ))}
-          {!visibleItems.length ? <Text style={styles.emptyText}>Өтінім табылмады</Text> : null}
+          {!visibleItems.length ? <Text style={styles.emptyText}>{t('requestNotFound')}</Text> : null}
         </ScrollView>
       )}
 
@@ -457,34 +457,34 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
         <View style={styles.modalBackdrop}>
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Сүзгілер</Text>
+              <Text style={styles.sheetTitle}>{t('filters')}</Text>
               <Pressable onPress={() => setFilterOpen(false)}><Ionicons name="close" size={22} color={colors.text} /></Pressable>
             </View>
             <ScrollView>
-              <FilterGroup title="Статус">
-                <Option label="Барлығы" active={!status} onPress={() => setStatus('')} />
-                <Option label="Жаңа" active={status === 'accepted'} onPress={() => setStatus('accepted')} />
-                <Option label="Орындалуда" active={status === 'in_progress'} onPress={() => setStatus('in_progress')} />
-                <Option label="Шешілді" active={status === 'resolved'} onPress={() => setStatus('resolved')} />
+              <FilterGroup title={t('status')}>
+                <Option label={t('all')} active={!status} onPress={() => setStatus('')} />
+                <Option label={t('newIssue')} active={status === 'accepted'} onPress={() => setStatus('accepted')} />
+                <Option label={t('inProgress')} active={status === 'in_progress'} onPress={() => setStatus('in_progress')} />
+                <Option label={t('resolved')} active={status === 'resolved'} onPress={() => setStatus('resolved')} />
               </FilterGroup>
-              <FilterGroup title="Санат">
-                <Option label="Барлығы" active={!categoryId} onPress={() => setCategoryId('')} />
+              <FilterGroup title={t('category')}>
+                <Option label={t('all')} active={!categoryId} onPress={() => setCategoryId('')} />
                 {categories.map((category) => <Option key={category.id} label={category.name} active={categoryId === category.id} onPress={() => setCategoryId(category.id)} />)}
               </FilterGroup>
-              <FilterGroup title="Қала">
-                <Option label="Барлығы" active={!cityId} onPress={() => setCityId('')} />
+              <FilterGroup title={t('city')}>
+                <Option label={t('all')} active={!cityId} onPress={() => setCityId('')} />
                 {cities.map((city) => <Option key={city.id} label={city.name} active={cityId === city.id} onPress={() => setCityId(city.id)} />)}
               </FilterGroup>
               {cityId ? (
-                <FilterGroup title="Аудан">
-                  <Option label="Барлығы" active={!districtId} onPress={() => setDistrictId('')} />
+                <FilterGroup title={t('district')}>
+                  <Option label={t('all')} active={!districtId} onPress={() => setDistrictId('')} />
                   {districts.map((district) => <Option key={district.id} label={district.name} active={districtId === district.id} onPress={() => setDistrictId(district.id)} />)}
                 </FilterGroup>
               ) : null}
             </ScrollView>
             <View style={styles.sheetActions}>
-              <Pressable style={styles.clearButton} onPress={resetFilters}><Text style={styles.clearText}>Тазалау</Text></Pressable>
-              <Pressable style={styles.applyButton} onPress={() => { setPage(1); setFilterOpen(false); }}><Text style={styles.applyText}>Қолдану</Text></Pressable>
+              <Pressable style={styles.clearButton} onPress={resetFilters}><Text style={styles.clearText}>{t('clear')}</Text></Pressable>
+              <Pressable style={styles.applyButton} onPress={() => { setPage(1); setFilterOpen(false); }}><Text style={styles.applyText}>{t('apply')}</Text></Pressable>
             </View>
           </View>
         </View>
@@ -515,13 +515,13 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
           <View style={styles.modalBackdrop}>
             <View style={styles.sheet}>
               <View style={styles.sheetHeader}>
-                <Text style={styles.sheetTitle}>Өтінімді өзгерту</Text>
+                <Text style={styles.sheetTitle}>{t('issue')}</Text>
                 <Pressable onPress={closeEdit}><Ionicons name="close" size={22} color={colors.text} /></Pressable>
               </View>
               <ScrollView contentContainerStyle={styles.editSheetContent} keyboardShouldPersistTaps="handled">
-                <TextInput value={editTitle} onChangeText={setEditTitle} style={styles.editInput} placeholder="Тақырып" />
-                <TextInput value={editDescription} onChangeText={setEditDescription} style={[styles.editInput, styles.editArea]} multiline placeholder="Сипаттама" />
-                <Text style={styles.editLabel}>Санат</Text>
+                <TextInput value={editTitle} onChangeText={setEditTitle} style={styles.editInput} placeholder={t('title')} />
+                <TextInput value={editDescription} onChangeText={setEditDescription} style={[styles.editInput, styles.editArea]} multiline placeholder={t('description')} />
+                <Text style={styles.editLabel}>{t('category')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.editChipRow}>
                   {categories.map((category) => (
                     <Pressable
@@ -533,7 +533,7 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
                     </Pressable>
                   ))}
                 </ScrollView>
-                <Text style={styles.editLabel}>Қала</Text>
+                <Text style={styles.editLabel}>{t('city')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.editChipRow}>
                   {cities.map((city) => (
                     <Pressable
@@ -547,10 +547,10 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
                 </ScrollView>
                 {editDistricts.length ? (
                   <>
-                    <Text style={styles.editLabel}>Аудан</Text>
+                    <Text style={styles.editLabel}>{t('district')}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.editChipRow}>
                       <Pressable onPress={() => setEditDistrictId('')} style={[styles.editChip, !editDistrictId && styles.editChipActive]}>
-                        <Text style={[styles.editChipText, !editDistrictId && styles.editChipTextActive]}>Таңдалмаған</Text>
+                        <Text style={[styles.editChipText, !editDistrictId && styles.editChipTextActive]}>{t('notSelected')}</Text>
                       </Pressable>
                       {editDistricts.map((district) => (
                         <Pressable
@@ -564,7 +564,7 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
                     </ScrollView>
                   </>
                 ) : null}
-                <Text style={styles.editLabel}>Орналасу нүктесі</Text>
+                <Text style={styles.editLabel}>{t('locationPoint')}</Text>
                 <View style={styles.editMapBox}>
                   <MapView
                     region={{
@@ -584,17 +584,17 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
                 <View style={styles.priorityRow}>
                   {(['low', 'medium', 'high'] as RequestPriority[]).map((priority) => (
                     <Pressable key={priority} style={[styles.priorityButton, editPriority === priority && { backgroundColor: priorityColors[priority] }]} onPress={() => setEditPriority(priority)}>
-                      <Text style={[styles.priorityText, editPriority === priority && { color: colors.white }]}>{priorityLabels[priority]}</Text>
+                      <Text style={[styles.priorityText, editPriority === priority && { color: colors.white }]}>{getPriorityLabel(priority)}</Text>
                     </Pressable>
                   ))}
                 </View>
                 <View style={styles.editPhotoHeader}>
-                  <Text style={styles.editLabel}>Фото</Text>
+                  <Text style={styles.editLabel}>{t('photo')}</Text>
                   <Text style={styles.editPhotoCounter}>{editExistingPhotos.length + editPhotos.length}/{REQUEST_PHOTO_LIMIT}</Text>
                 </View>
                 {editExistingPhotos.length ? (
                   <>
-                    <Text style={styles.editPhotoSubLabel}>Қазіргі фото</Text>
+                    <Text style={styles.editPhotoSubLabel}>{t('currentPhoto')}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.editPhotoRow}>
                       {editExistingPhotos.map((photo) => (
                         <View key={photo.id} style={styles.editPhotoPreview}>
@@ -606,11 +606,11 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
                 ) : null}
                 <Pressable style={styles.editPhotoButton} onPress={() => void pickEditPhotos()}>
                   <Ionicons name="image-outline" size={18} color={colors.accent} />
-                  <Text style={styles.editPhotoButtonText}>Фото қосу</Text>
+                  <Text style={styles.editPhotoButtonText}>{t('selectPhoto')}</Text>
                 </Pressable>
                 {editPhotos.length ? (
                   <>
-                    <Text style={styles.editPhotoSubLabel}>Жаңа фото</Text>
+                    <Text style={styles.editPhotoSubLabel}>{t('newPhoto')}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.editPhotoRow}>
                       {editPhotos.map((photo, index) => (
                         <View key={`${photo.uri}-${index}`} style={styles.editPhotoPreview}>
@@ -624,7 +624,7 @@ export function RequestsScreen({ auth }: RequestsScreenProps) {
                   </>
                 ) : null}
                 <Pressable style={styles.applyButton} onPress={() => void saveEdit()}>
-                  {editBusy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.applyText}>Сақтау</Text>}
+                  {editBusy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.applyText}>{t('save')}</Text>}
                 </Pressable>
               </ScrollView>
             </View>
@@ -664,7 +664,18 @@ function RequestDetailModal({
   onPreviousMedia: () => void;
   onSubmitComment: () => void;
 }) {
+  const { colors } = useTheme();
+  const { t } = useLanguage();
+  styles = createStyles(colors);
   const [keyboardHeight, setKeyboardHeight] = React.useState(0);
+  const statusLabel = request.status === 'accepted' ? t('newIssue') : request.status === 'in_progress' ? t('inProgress') : t('resolved');
+  const priorityLabel = request.priority
+    ? request.priority === 'low'
+      ? t('low')
+      : request.priority === 'medium'
+        ? t('medium')
+        : t('high')
+    : null;
 
   React.useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -686,14 +697,14 @@ function RequestDetailModal({
     <View style={styles.detailScreen}>
       <View style={styles.detailHeader}>
         <Pressable style={styles.headerButton} onPress={onClose}><Ionicons name="chevron-back" size={22} color={colors.text} /></Pressable>
-        <Text style={styles.detailHeaderTitle}>Өтінім</Text>
+        <Text style={styles.detailHeaderTitle}>{t('issue')}</Text>
         <Pressable style={styles.headerButton} onPress={onEdit}><Ionicons name="create-outline" size={21} color={colors.accent} /></Pressable>
       </View>
       {detailLoading ? <ActivityIndicator color={colors.accent} style={{ marginTop: 10 }} /> : null}
       <ScrollView contentContainerStyle={[styles.detailContent, { paddingBottom: 170 + keyboardHeight }]} keyboardShouldPersistTaps="handled">
         <View style={styles.cardBadges}>
-          <Badge label={statusLabels[request.status]} color={statusColors[request.status]} />
-          {request.priority ? <Badge label={priorityLabels[request.priority]} color={priorityColors[request.priority]} /> : null}
+          <Badge label={statusLabel} color={statusColors[request.status]} />
+          {request.priority && priorityLabel ? <Badge label={priorityLabel} color={priorityColors[request.priority]} /> : null}
         </View>
         <Text style={styles.detailTitle}>{request.title}</Text>
         {currentMedia ? (
@@ -709,21 +720,21 @@ function RequestDetailModal({
           </View>
         ) : null}
         <Text style={styles.detailDescription}>{request.description}</Text>
-        <InfoRow label="Санат" value={request.category?.name ?? 'Көрсетілмеген'} />
-        <InfoRow label="Қала" value={`${request.city?.name ?? 'Көрсетілмеген'}${request.district?.name ? ` / ${request.district.name}` : ''}`} />
-        <InfoRow label="Ұйым" value={request.organization?.name ?? 'Тағайындалмаған'} />
-        <InfoRow label="Құрылған уақыты" value={formatDate(request.createdAt)} />
-        <Text style={styles.commentTitle}>Комментарийлер</Text>
+        <InfoRow label={t('category')} value={request.category?.name ?? t('notSpecified')} />
+        <InfoRow label={t('city')} value={`${request.city?.name ?? t('notSpecified')}${request.district?.name ? ` / ${request.district.name}` : ''}`} />
+        <InfoRow label={t('organization')} value={request.organization?.name ?? t('notAssigned')} />
+        <InfoRow label={t('createdAt')} value={formatDate(request.createdAt)} />
+        <Text style={styles.commentTitle}>{t('comments')}</Text>
         {(request.comments ?? []).filter((comment) => comment.source !== 'chat').map((comment) => (
           <View style={styles.commentItem} key={comment.id}>
-            <Text style={styles.commentAuthor}>{comment.authorOrganization?.name ?? comment.authorUser?.fullName ?? 'Белгісіз'}</Text>
+            <Text style={styles.commentAuthor}>{comment.authorOrganization?.name ?? comment.authorUser?.fullName ?? t('unknown')}</Text>
             <Text style={styles.commentText}>{comment.text}</Text>
           </View>
         ))}
       </ScrollView>
       {keyboardHeight > 0 ? <View style={[styles.keyboardCover, { height: keyboardHeight + 92 }]} /> : null}
       <View style={[styles.commentComposer, { bottom: keyboardHeight + 8 }]}>
-        <TextInput value={commentText} onChangeText={onChangeComment} style={styles.commentInput} placeholder="Комментарий жазу" multiline />
+        <TextInput value={commentText} onChangeText={onChangeComment} style={styles.commentInput} placeholder={t('commentPlaceholder')} multiline />
         <Pressable style={[styles.commentSend, (!commentText.trim() || commentBusy) && styles.disabled]} disabled={!commentText.trim() || commentBusy} onPress={onSubmitComment}>
           {commentBusy ? <ActivityIndicator color={colors.white} /> : <Ionicons name="send" size={18} color={colors.white} />}
         </Pressable>
@@ -740,10 +751,13 @@ function Badge({ label, color }: { label: string; color: string }) {
   );
 }
 
-function StatusChip({ label, value, active, tone = colors.accent, onPress }: { label: string; value: number; active: boolean; tone?: string; onPress: () => void }) {
+function StatusChip({ label, value, active, tone, onPress }: { label: string; value: number; active: boolean; tone?: string; onPress: () => void }) {
+  const { colors } = useTheme();
+  const chipTone = tone ?? colors.accent;
+
   return (
-    <Pressable style={[styles.statusChip, active && { borderColor: tone, backgroundColor: colors.accentSoft }]} onPress={onPress}>
-      <Text style={[styles.statusChipLabel, active && { color: tone }]}>{label}</Text>
+    <Pressable style={[styles.statusChip, active && { borderColor: chipTone, backgroundColor: colors.accentSoft }]} onPress={onPress}>
+      <Text style={[styles.statusChipLabel, active && { color: chipTone }]}>{label}</Text>
       <Text style={styles.statusChipValue}>{value}</Text>
     </Pressable>
   );
@@ -775,7 +789,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: { minHeight: 72, paddingHorizontal: 18, paddingTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   eyebrow: { color: colors.accent, fontSize: 12, fontWeight: '900' },
@@ -790,7 +804,7 @@ const styles = StyleSheet.create({
   loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   loadingText: { color: colors.muted, fontWeight: '700' },
   listContent: { paddingHorizontal: 18, paddingBottom: 18, gap: 12 },
-  card: { borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, padding: 14 },
+  card: { borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: 14 },
   cardHeader: { flexDirection: 'row', gap: 10 },
   cardTitleBlock: { flex: 1 },
   cardTitle: { color: colors.text, fontSize: 16, fontWeight: '900' },
@@ -813,7 +827,7 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.45 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
   modalAvoidingView: { flex: 1 },
-  sheet: { maxHeight: '86%', borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: colors.white, padding: 18 },
+  sheet: { maxHeight: '86%', borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: colors.surface, padding: 18 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   sheetTitle: { color: colors.text, fontSize: 19, fontWeight: '900' },
   filterGroup: { marginBottom: 16 },
@@ -844,8 +858,8 @@ const styles = StyleSheet.create({
   commentItem: { borderRadius: 14, backgroundColor: colors.accentSoft, padding: 10, marginBottom: 8 },
   commentAuthor: { color: colors.accent, fontSize: 12, fontWeight: '900', marginBottom: 4 },
   commentText: { color: colors.text, fontSize: 13, lineHeight: 18, fontWeight: '600' },
-  commentComposer: { position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: 72, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 12 },
-  keyboardCover: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.white },
+  commentComposer: { position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: 72, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 12 },
+  keyboardCover: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface },
   commentInput: { flex: 1, minHeight: 44, maxHeight: 96, borderRadius: 14, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10, color: colors.text, fontWeight: '600' },
   commentSend: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   editInput: { minHeight: 50, borderRadius: 15, borderWidth: 1, borderColor: colors.border, color: colors.text, paddingHorizontal: 12, fontWeight: '700', marginBottom: 10 },
@@ -858,7 +872,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     paddingHorizontal: 13,
   },
@@ -879,7 +893,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -892,3 +906,5 @@ const styles = StyleSheet.create({
   editPhotoImage: { width: '100%', height: '100%' },
   editPhotoRemove: { position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
 });
+
+let styles = createStyles(lightColors);

@@ -15,8 +15,12 @@ import {
   listCategories,
   listCities,
   listDistricts,
+  enhanceDescription,
 } from '../services/requests';
-import { colors } from '../theme/colors';
+import { ThemeColors, lightColors } from '../theme/colors';
+import { AnimatedScreen } from '../components/AnimatedPrimitives';
+import { useLanguage } from '../theme/LanguageContext';
+import { useTheme } from '../theme/ThemeContext';
 
 type CreateRequestScreenProps = {
   auth: AuthResult;
@@ -49,8 +53,13 @@ const buildPhotoFile = (asset: ImagePicker.ImagePickerAsset): PickedPhoto => {
 };
 
 export function CreateRequestScreen({ auth, onCreated }: CreateRequestScreenProps) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const colors = theme.colors;
+  styles = createStyles(colors);
   const [loading, setLoading] = React.useState(true);
   const [submitBusy, setSubmitBusy] = React.useState(false);
+  const [enhanceBusy, setEnhanceBusy] = React.useState(false);
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [cities, setCities] = React.useState<City[]>([]);
   const [districts, setDistricts] = React.useState<District[]>([]);
@@ -89,7 +98,7 @@ export function CreateRequestScreen({ auth, onCreated }: CreateRequestScreenProp
           });
         }
       } catch (error) {
-        Alert.alert('Қате', error instanceof Error ? error.message : 'Деректер жүктелмеді.');
+        Alert.alert(t('error'), error instanceof Error ? error.message : t('dataLoadFailed'));
       } finally {
         if (active) setLoading(false);
       }
@@ -149,7 +158,7 @@ export function CreateRequestScreen({ auth, onCreated }: CreateRequestScreenProp
   const centerOnUser = async () => {
     const permission = await Location.requestForegroundPermissionsAsync();
     if (permission.status !== 'granted') {
-      Alert.alert('Рұқсат керек', 'Орныңызды белгілеу үшін геолокацияға рұқсат беріңіз.');
+      Alert.alert(t('permissionRequired'), t('locationPermissionText'));
       return;
     }
 
@@ -162,13 +171,13 @@ export function CreateRequestScreen({ auth, onCreated }: CreateRequestScreenProp
 
   const pickPhotos = async () => {
     if (photos.length >= PHOTO_LIMIT) {
-      Alert.alert('Фото', `Бір өтінімге максимум ${PHOTO_LIMIT} фото қосылады.`);
+      Alert.alert(t('photo'), t('photoLimitText'));
       return;
     }
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Рұқсат керек', 'Фото таңдау үшін галереяға рұқсат беріңіз.');
+      Alert.alert(t('permissionRequired'), t('photoPermissionText'));
       return;
     }
 
@@ -183,9 +192,42 @@ export function CreateRequestScreen({ auth, onCreated }: CreateRequestScreenProp
     setPhotos((current) => [...current, ...result.assets.map(buildPhotoFile)].slice(0, PHOTO_LIMIT));
   };
 
+  const enhanceDescriptionHandler = async () => {
+    if (!description.trim() || description.trim().length < 10) {
+      Alert.alert(t('error'), t('descriptionTooShort'));
+      return;
+    }
+
+    setEnhanceBusy(true);
+    try {
+      const result = await enhanceDescription(auth.accessToken, description.trim(), title.trim() || undefined);
+      Alert.alert(
+        t('aiEnhance'),
+        `${result.summary}\n\nКөмегі бар нүкті:\n${result.keyIssues.join(', ')}`,
+        [
+          {
+            text: t('cancel'),
+            onPress: () => {},
+            style: 'cancel',
+          },
+          {
+            text: t('apply'),
+            onPress: () => {
+              setDescription(result.enhancedDescription);
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      Alert.alert(t('error'), error instanceof Error ? error.message : t('aiEnhanceFailed'));
+    } finally {
+      setEnhanceBusy(false);
+    }
+  };
+
   const submit = async () => {
     if (!canSubmit) {
-      Alert.alert('Өрістер толық емес', 'Тақырып, сипаттама, санат, қала және картадағы орын міндетті.');
+      Alert.alert(t('error'), t('requestFieldsIncomplete'));
       return;
     }
 
@@ -217,12 +259,12 @@ export function CreateRequestScreen({ auth, onCreated }: CreateRequestScreenProp
       setDistrictId('');
       setPhotos([]);
       Alert.alert(
-        'Өтінім жіберілді',
-        uploaded < photos.length ? `Өтінім құрылды, бірақ фото ${uploaded}/${photos.length} жүктелді.` : 'Өтінім сәтті құрылды.',
+        t('send'),
+        uploaded < photos.length ? `${t('send')}: ${uploaded}/${photos.length}` : t('send'),
       );
       onCreated?.();
     } catch (error) {
-      Alert.alert('Қате', error instanceof Error ? error.message : 'Өтінімді жіберу мүмкін болмады.');
+      Alert.alert(t('error'), error instanceof Error ? error.message : t('requestSendFailed'));
     } finally {
       setSubmitBusy(false);
     }
@@ -232,40 +274,52 @@ export function CreateRequestScreen({ auth, onCreated }: CreateRequestScreenProp
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.accent} />
-        <Text style={styles.loadingText}>Құру беті жүктелуде...</Text>
+        <Text style={styles.loadingText}>{t('createLoading')}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Жаңа өтінім</Text>
-        <Text style={styles.headerSubtitle}>Мәселені сипаттап, картадан орнын белгілеңіз.</Text>
-      </View>
+      <AnimatedScreen style={styles.header}>
+        <Text style={styles.headerTitle}>{t('createRequest')}</Text>
+      </AnimatedScreen>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Мәселе сипаттамасы</Text>
+          <Text style={styles.sectionTitle}>{t('issueDescription')}</Text>
           <TextInput
             value={title}
             onChangeText={setTitle}
-            placeholder="Тақырып"
+            placeholder={t('title')}
             placeholderTextColor={colors.muted}
             style={styles.input}
           />
-          <TextInput
-            multiline
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Сипаттама"
-            placeholderTextColor={colors.muted}
-            style={[styles.input, styles.textArea]}
-          />
+          <View style={styles.descriptionContainer}>
+            <TextInput
+              multiline
+              value={description}
+              onChangeText={setDescription}
+              placeholder={t('description')}
+              placeholderTextColor={colors.muted}
+              style={[styles.input, styles.textArea, { flex: 1 }]}
+            />
+            <Pressable
+              disabled={enhanceBusy || description.trim().length < 10}
+              onPress={() => void enhanceDescriptionHandler()}
+              style={[styles.aiButton, (enhanceBusy || description.trim().length < 10) && styles.aiButtonDisabled]}
+            >
+              {enhanceBusy ? (
+                <ActivityIndicator color={colors.accent} size={20} />
+              ) : (
+                <Ionicons name="sparkles" size={18} color={colors.accent} />
+              )}
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Санат</Text>
+          <Text style={styles.sectionTitle}>{t('category')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {categories.map((category) => (
               <Pressable
@@ -280,7 +334,7 @@ export function CreateRequestScreen({ auth, onCreated }: CreateRequestScreenProp
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Қала</Text>
+          <Text style={styles.sectionTitle}>{t('city')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {cities.map((city) => (
               <Pressable key={city.id} onPress={() => selectCity(city)} style={[styles.chip, cityId === city.id && styles.chipActive]}>
@@ -291,10 +345,10 @@ export function CreateRequestScreen({ auth, onCreated }: CreateRequestScreenProp
 
           {districts.length ? (
             <>
-              <Text style={styles.inlineLabel}>Аудан</Text>
+              <Text style={styles.inlineLabel}>{t('district')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
                 <Pressable onPress={() => setDistrictId('')} style={[styles.chip, !districtId && styles.chipActive]}>
-                  <Text style={[styles.chipText, !districtId && styles.chipTextActive]}>Таңдалмаған</Text>
+                  <Text style={[styles.chipText, !districtId && styles.chipTextActive]}>{t('notSelected')}</Text>
                 </Pressable>
                 {districts.map((district) => (
                   <Pressable
@@ -312,10 +366,10 @@ export function CreateRequestScreen({ auth, onCreated }: CreateRequestScreenProp
 
         <View style={styles.section}>
           <View style={styles.mapHeader}>
-            <Text style={styles.sectionTitle}>Орналасу нүктесі</Text>
+            <Text style={styles.sectionTitle}>{t('locationPoint')}</Text>
             <Pressable onPress={() => void centerOnUser()} style={styles.locationButton}>
               <Ionicons name="locate-outline" size={17} color={colors.accent} />
-              <Text style={styles.locationButtonText}>Менің орным</Text>
+              <Text style={styles.locationButtonText}>{t('myLocation')}</Text>
             </Pressable>
           </View>
           <View style={styles.mapBox}>
@@ -341,12 +395,12 @@ export function CreateRequestScreen({ auth, onCreated }: CreateRequestScreenProp
 
         <View style={styles.section}>
           <View style={styles.mapHeader}>
-            <Text style={styles.sectionTitle}>Фотолар</Text>
+            <Text style={styles.sectionTitle}>{t('photos')}</Text>
             <Text style={styles.photoLimit}>{photos.length}/{PHOTO_LIMIT}</Text>
           </View>
           <Pressable onPress={() => void pickPhotos()} style={styles.photoButton}>
             <Ionicons name="image-outline" size={18} color={colors.accent} />
-            <Text style={styles.photoButtonText}>Фото таңдау</Text>
+            <Text style={styles.photoButtonText}>{t('pickPhoto')}</Text>
           </Pressable>
           {photos.length ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
@@ -363,17 +417,17 @@ export function CreateRequestScreen({ auth, onCreated }: CreateRequestScreenProp
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <AnimatedScreen delay={120} distance={12} style={styles.footer}>
         <Pressable disabled={!canSubmit} onPress={() => void submit()} style={[styles.submitButton, !canSubmit && styles.disabled]}>
           {submitBusy ? <ActivityIndicator color={colors.white} /> : <Ionicons name="send" size={18} color={colors.white} />}
-          <Text style={styles.submitText}>Жіберу</Text>
+          <Text style={styles.submitText}>{t('send')}</Text>
         </Pressable>
-      </View>
+      </AnimatedScreen>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   loadingText: { color: colors.muted, fontWeight: '800' },
@@ -388,20 +442,43 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     color: colors.text,
     fontSize: 15,
     fontWeight: '700',
     paddingHorizontal: 14,
   },
   textArea: { minHeight: 110, paddingTop: 12, textAlignVertical: 'top' },
+  descriptionContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingRight: 8,
+    paddingBottom: 8,
+  },
+  aiButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  aiButtonDisabled: {
+    opacity: 0.35,
+  },
   chipRow: { gap: 8, paddingRight: 18 },
   chip: {
     minHeight: 38,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     paddingHorizontal: 13,
   },
@@ -421,7 +498,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -439,7 +516,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     padding: 12,
   },
   submitButton: {
@@ -454,3 +531,5 @@ const styles = StyleSheet.create({
   submitText: { color: colors.white, fontSize: 15, fontWeight: '900' },
   disabled: { opacity: 0.45 },
 });
+
+let styles = createStyles(lightColors);

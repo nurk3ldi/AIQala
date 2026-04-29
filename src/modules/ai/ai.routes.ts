@@ -11,7 +11,7 @@ import { asyncHandler } from '../../common/utils/async-handler';
 import { AiController } from './ai.controller';
 import { AiRepository } from './ai.repository';
 import { AiService } from './ai.service';
-import { DraftCommentDto, AnalyzeIssueDto, ModerateTextDto } from './dto/ai.dto';
+import { DraftCommentDto, AnalyzeIssueDto, ModerateTextDto, EnhanceDescriptionDto, ChatDto } from './dto/ai.dto';
 import { GeminiClient } from './gemini.client';
 
 const router = Router();
@@ -20,6 +20,8 @@ const controller = new AiController(aiService);
 
 router.post('/moderate', authenticate, aiRateLimiter, validateRequest({ body: ModerateTextDto }), asyncHandler(controller.moderateText));
 router.post('/requests/analyze', authenticate, aiRateLimiter, validateRequest({ body: AnalyzeIssueDto }), asyncHandler(controller.analyzeIssue));
+router.post('/enhance-description', authenticate, aiRateLimiter, validateRequest({ body: EnhanceDescriptionDto }), asyncHandler(controller.enhanceDescription));
+router.post('/chat', authenticate, aiRateLimiter, validateRequest({ body: ChatDto }), asyncHandler(controller.chat));
 router.post(
   '/requests/:id/analyze',
   authenticate,

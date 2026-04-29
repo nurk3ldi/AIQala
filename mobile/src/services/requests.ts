@@ -90,6 +90,13 @@ export type RequestComment = {
   } | null;
 };
 
+export type EnhancedDescription = {
+  enhancedDescription: string;
+  summary: string;
+  keyIssues: string[];
+  suggestions: string[];
+};
+
 type PaginatedResult<T> = {
   items: T[];
   meta: {
@@ -324,4 +331,45 @@ export async function addRequestMedia(
   });
 
   return response.data;
+}
+
+export async function enhanceDescription(
+  token: string,
+  description: string,
+  title?: string,
+): Promise<EnhancedDescription> {
+  type EnhanceResponse = {
+    success: boolean;
+    data: EnhancedDescription;
+  };
+
+  const response = await apiRequest<EnhanceResponse>('/ai/enhance-description', {
+    method: 'POST',
+    body: JSON.stringify({
+      description,
+      title: title || undefined,
+    }),
+    token,
+  });
+
+  return response.data;
+}
+
+export async function sendAiChat(
+  token: string,
+  message: string,
+  cityId?: string,
+): Promise<string> {
+  type ChatResponse = {
+    success: boolean;
+    data: { answer: string };
+  };
+
+  const response = await apiRequest<ChatResponse>('/ai/chat', {
+    method: 'POST',
+    body: JSON.stringify({ message, cityId: cityId || undefined }),
+    token,
+  });
+
+  return response.data.answer;
 }

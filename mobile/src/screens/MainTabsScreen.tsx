@@ -9,7 +9,9 @@ import { ChatScreen } from './ChatScreen';
 import { CreateRequestScreen } from './CreateRequestScreen';
 import { HomeMapScreen } from './HomeMapScreen';
 import { RequestsScreen } from './RequestsScreen';
-import { colors } from '../theme/colors';
+import { ThemeColors, lightColors } from '../theme/colors';
+import { useLanguage } from '../theme/LanguageContext';
+import { useTheme } from '../theme/ThemeContext';
 
 type MainTabsScreenProps = {
   auth: AuthResult;
@@ -43,21 +45,11 @@ const tabs: TabItem[] = [
   },
 ];
 
-const screenTitles: Record<Exclude<TabKey, 'home'>, string> = {
-  requests: 'Өтінімдер',
-  create: 'Жаңа өтінім құру',
-  chat: 'Чат',
-  profile: 'Профиль',
-};
-
-const screenSubtitles: Record<Exclude<TabKey, 'home'>, string> = {
-  requests: 'Өтінімдеріңіз осы жерде болады',
-  create: 'Мәселені тіркеу формасы осында ашылады',
-  chat: 'AIQala көмекшісімен сөйлесу',
-  profile: 'Өз профиліңіздің мәліметтері',
-};
-
 export function MainTabsScreen({ auth, onAuthUpdate, onLogout }: MainTabsScreenProps) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const colors = theme.colors;
+  styles = createStyles(colors);
   const [activeTab, setActiveTab] = React.useState<TabKey>('home');
   const [isHomeDetailOpen, setIsHomeDetailOpen] = React.useState(false);
 
@@ -77,8 +69,7 @@ export function MainTabsScreen({ auth, onAuthUpdate, onLogout }: MainTabsScreenP
         ) : (
           <View style={styles.placeholder}>
             <Text style={styles.brand}>AIQala</Text>
-            <Text style={styles.title}>{screenTitles[activeTab]}</Text>
-            <Text style={styles.subtitle}>{screenSubtitles[activeTab]}</Text>
+            <Text style={styles.title}>{t(activeTab === 'create' ? 'createRequest' : activeTab)}</Text>
           </View>
         )}
       </View>
@@ -109,8 +100,6 @@ export function MainTabsScreen({ auth, onAuthUpdate, onLogout }: MainTabsScreenP
   );
 }
 
-const languages = ['ҚАЗ', 'РУС', 'ENG'];
-
 function ProfileScreen({
   auth,
   onAuthUpdate,
@@ -122,33 +111,22 @@ function ProfileScreen({
   onBack: () => void;
   onLogout: () => void;
 }) {
+  const { colors, isDarkMode, toggleTheme } = useTheme();
+  const { t, toggleLanguage } = useLanguage();
+  styles = createStyles(colors);
   const { width } = useWindowDimensions();
   const slideX = React.useRef(new Animated.Value(width)).current;
-  const [languageIndex, setLanguageIndex] = React.useState(0);
-  const [isDarkMode, setIsDarkMode] = React.useState(false);
   const [isPhotoSheetVisible, setIsPhotoSheetVisible] = React.useState(false);
   const [isPhotoUpdating, setIsPhotoUpdating] = React.useState(false);
   const [isNameModalVisible, setIsNameModalVisible] = React.useState(false);
   const [nameDraft, setNameDraft] = React.useState(auth.user.fullName);
   const [isNameUpdating, setIsNameUpdating] = React.useState(false);
-  const palette = isDarkMode
-    ? {
-        background: '#15131a',
-        surface: '#211b29',
-        border: '#382d45',
-        text: colors.white,
-        muted: '#c8bdd2',
-      }
-    : {
-        background: colors.background,
-        surface: colors.white,
-        border: colors.border,
-        text: colors.text,
-        muted: colors.muted,
-      };
-
-  const toggleLanguage = () => {
-    setLanguageIndex((current) => (current + 1) % languages.length);
+  const palette = {
+    background: colors.background,
+    surface: colors.surface,
+    border: colors.border,
+    text: colors.text,
+    muted: colors.muted,
   };
 
   const applyUserUpdate = (user: AuthUser) => {
@@ -159,13 +137,13 @@ function ProfileScreen({
   };
 
   const handleLogoutPress = () => {
-    Alert.alert('Шығу', 'Аккаунттан шығуды растайсыз ба?', [
+    Alert.alert(t('logoutTitle'), t('logoutConfirm'), [
       {
-        text: 'Болдырмау',
+        text: t('cancel'),
         style: 'cancel',
       },
       {
-        text: 'Шығу',
+        text: t('logout'),
         style: 'destructive',
         onPress: onLogout,
       },
@@ -176,7 +154,7 @@ function ProfileScreen({
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert('Рұқсат керек', 'Фотоны таңдау үшін галереяға рұқсат беріңіз.');
+      Alert.alert(t('permissionRequired'), t('photoPermissionText'));
       return;
     }
 
@@ -205,7 +183,7 @@ function ProfileScreen({
       applyUserUpdate(user);
       setIsPhotoSheetVisible(false);
     } catch (error) {
-      Alert.alert('Қате', error instanceof Error ? error.message : 'Фотоны жүктеу мүмкін болмады.');
+      Alert.alert(t('error'), error instanceof Error ? error.message : t('avatarUploadFailed'));
     } finally {
       setIsPhotoUpdating(false);
     }
@@ -222,7 +200,7 @@ function ProfileScreen({
       applyUserUpdate(user);
       setIsPhotoSheetVisible(false);
     } catch (error) {
-      Alert.alert('Қате', error instanceof Error ? error.message : 'Фотоны өшіру мүмкін болмады.');
+      Alert.alert(t('error'), error instanceof Error ? error.message : t('avatarDeleteFailed'));
     } finally {
       setIsPhotoUpdating(false);
     }
@@ -237,7 +215,7 @@ function ProfileScreen({
     const nextName = nameDraft.trim();
 
     if (nextName.length < 2) {
-      Alert.alert('Қате', 'Аккаунт аты кемінде 2 таңбадан тұруы керек.');
+      Alert.alert(t('error'), t('nameTooShort'));
       return;
     }
 
@@ -252,7 +230,7 @@ function ProfileScreen({
       applyUserUpdate(user);
       setIsNameModalVisible(false);
     } catch (error) {
-      Alert.alert('Қате', error instanceof Error ? error.message : 'Аккаунт атын өзгерту мүмкін болмады.');
+      Alert.alert(t('error'), error instanceof Error ? error.message : t('nameUpdateFailed'));
     } finally {
       setIsNameUpdating(false);
     }
@@ -274,7 +252,7 @@ function ProfileScreen({
           <Ionicons name="chevron-back" size={24} color={palette.text} />
         </Pressable>
 
-        <Text style={[styles.profileHeaderTitle, { color: palette.text }]}>Профиль</Text>
+        <Text style={[styles.profileHeaderTitle, { color: palette.text }]}>{t('profile')}</Text>
 
         <View style={styles.headerActions}>
           <Pressable
@@ -283,11 +261,11 @@ function ProfileScreen({
             style={({ pressed }) => [styles.headerIconButton, styles.languageButton, { borderColor: palette.border }, pressed && styles.pressed]}
           >
             <Ionicons name="language-outline" size={20} color={colors.accent} />
-            <Text style={styles.languageText}>{languages[languageIndex]}</Text>
+            <Text style={styles.languageText}>{t('languageCode')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            onPress={() => setIsDarkMode((current) => !current)}
+            onPress={toggleTheme}
             style={({ pressed }) => [styles.headerIconButton, { borderColor: palette.border }, pressed && styles.pressed]}
           >
             <Ionicons name={isDarkMode ? 'sunny-outline' : 'moon-outline'} size={21} color={colors.accent} />
@@ -312,7 +290,7 @@ function ProfileScreen({
             style={({ pressed }) => [styles.changeAvatarButton, pressed && styles.pressed]}
           >
             <Ionicons name="camera-outline" size={18} color={colors.white} />
-            <Text style={styles.changeAvatarText}>Фото өзгерту</Text>
+            <Text style={styles.changeAvatarText}>{t('updateAvatar')}</Text>
           </Pressable>
         </View>
 
@@ -320,7 +298,7 @@ function ProfileScreen({
 
         <View style={styles.accountInfo}>
           <ProfileInfoRow
-            label="Аккаунт аты"
+            label={t('accountName')}
             value={auth.user.fullName}
             textColor={palette.text}
             mutedColor={palette.muted}
@@ -329,14 +307,14 @@ function ProfileScreen({
           <View style={[styles.infoDivider, { backgroundColor: palette.border }]} />
           <ProfileInfoRow label="Email" value={auth.user.email} textColor={palette.text} mutedColor={palette.muted} />
           <View style={[styles.infoDivider, { backgroundColor: palette.border }]} />
-          <ProfileInfoRow label="Рөл" value={auth.user.role} textColor={palette.text} mutedColor={palette.muted} />
+          <ProfileInfoRow label={t('role')} value={auth.user.role} textColor={palette.text} mutedColor={palette.muted} />
           <View style={[styles.infoDivider, { backgroundColor: palette.border }]} />
-          <ProfileInfoRow label="Аккаунт ID" value={auth.user.id} textColor={palette.text} mutedColor={palette.muted} />
+          <ProfileInfoRow label={t('accountId')} value={auth.user.id} textColor={palette.text} mutedColor={palette.muted} />
         </View>
 
         <Pressable accessibilityRole="button" onPress={handleLogoutPress} style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}>
           <Ionicons name="log-out-outline" size={20} color={colors.white} />
-          <Text style={styles.logoutText}>Шығу</Text>
+          <Text style={styles.logoutText}>{t('logout')}</Text>
         </Pressable>
       </View>
 
@@ -344,7 +322,7 @@ function ProfileScreen({
         <View style={styles.modalBackdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => !isPhotoUpdating && setIsPhotoSheetVisible(false)} />
           <View style={[styles.photoSheet, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-            <Text style={[styles.photoSheetTitle, { color: palette.text }]}>Профиль фотосы</Text>
+            <Text style={[styles.photoSheetTitle, { color: palette.text }]}>{t('profilePhoto')}</Text>
             <Pressable
               accessibilityRole="button"
               disabled={isPhotoUpdating}
@@ -352,7 +330,7 @@ function ProfileScreen({
               style={({ pressed }) => [styles.photoSheetButton, { borderColor: palette.border }, pressed && styles.pressed]}
             >
               <Ionicons name="image-outline" size={21} color={colors.accent} />
-              <Text style={[styles.photoSheetButtonText, { color: palette.text }]}>Басқасын жүктеу</Text>
+              <Text style={[styles.photoSheetButtonText, { color: palette.text }]}>{t('photoUpload')}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -366,7 +344,7 @@ function ProfileScreen({
               ]}
             >
               <Ionicons name="trash-outline" size={21} color="#dc2626" />
-              <Text style={[styles.photoSheetButtonText, { color: auth.user.avatarUrl ? '#dc2626' : palette.muted }]}>Фотоны өшіру</Text>
+              <Text style={[styles.photoSheetButtonText, { color: auth.user.avatarUrl ? '#dc2626' : palette.muted }]}>{t('deletePhoto')}</Text>
             </Pressable>
             {isPhotoUpdating ? <ActivityIndicator color={colors.accent} style={styles.photoLoader} /> : null}
           </View>
@@ -378,12 +356,12 @@ function ProfileScreen({
           <View style={styles.modalBackdrop}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => !isNameUpdating && setIsNameModalVisible(false)} />
             <View style={[styles.nameDialog, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-              <Text style={[styles.photoSheetTitle, { color: palette.text }]}>Аккаунт атын өзгерту</Text>
+              <Text style={[styles.photoSheetTitle, { color: palette.text }]}>{t('updateNameTitle')}</Text>
               <TextInput
                 autoFocus
                 editable={!isNameUpdating}
                 onChangeText={setNameDraft}
-                placeholder="Аккаунт аты"
+                placeholder={t('accountName')}
                 placeholderTextColor={palette.muted}
                 returnKeyType="done"
                 onSubmitEditing={handleSaveName}
@@ -397,7 +375,7 @@ function ProfileScreen({
                   onPress={() => setIsNameModalVisible(false)}
                   style={({ pressed }) => [styles.nameCancelButton, { borderColor: palette.border }, pressed && styles.pressed]}
                 >
-                  <Text style={[styles.nameCancelText, { color: palette.text }]}>Болдырмау</Text>
+                  <Text style={[styles.nameCancelText, { color: palette.text }]}>{t('cancel')}</Text>
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
@@ -405,7 +383,7 @@ function ProfileScreen({
                   onPress={handleSaveName}
                   style={({ pressed }) => [styles.nameSaveButton, pressed && styles.pressed]}
                 >
-                  {isNameUpdating ? <ActivityIndicator color={colors.white} /> : <Text style={styles.nameSaveText}>Сақтау</Text>}
+                  {isNameUpdating ? <ActivityIndicator color={colors.white} /> : <Text style={styles.nameSaveText}>{t('save')}</Text>}
                 </Pressable>
               </View>
             </View>
@@ -429,6 +407,8 @@ function ProfileInfoRow({
   mutedColor: string;
   onPress?: () => void;
 }) {
+  const { colors } = useTheme();
+
   const content = (
     <>
       <View style={styles.infoTextBlock}>
@@ -456,7 +436,7 @@ function ProfileInfoRow({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -493,7 +473,7 @@ const styles = StyleSheet.create({
     minHeight: 58,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 8,
@@ -517,7 +497,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 14,
   },
   headerIconButton: {
@@ -530,10 +509,9 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   profileHeaderTitle: {
-    position: 'absolute',
-    left: 96,
-    right: 96,
-    textAlign: 'center',
+    flex: 1,
+    marginLeft: 8,
+    textAlign: 'left',
     fontSize: 18,
     fontWeight: '900',
   },
@@ -737,3 +715,5 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 });
+
+let styles = createStyles(lightColors);

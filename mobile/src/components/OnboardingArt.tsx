@@ -1,13 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme/colors';
+import { ThemeColors, lightColors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 type OnboardingArtProps = {
   index: number;
 };
 
 export function OnboardingArt({ index }: OnboardingArtProps) {
+  const theme = useTheme();
+  styles = createStyles(theme.colors);
   const floatValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -78,7 +81,7 @@ export function OnboardingArt({ index }: OnboardingArtProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   stage: {
     height: 310,
     justifyContent: 'center',
@@ -115,7 +118,7 @@ const styles = StyleSheet.create({
     width: 192,
     height: 232,
     borderRadius: 32,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     padding: 18,
     shadowColor: colors.black,
     shadowOpacity: 0.13,
@@ -215,3 +218,5 @@ const styles = StyleSheet.create({
     opacity: 0.16,
   },
 });
+
+let styles = createStyles(lightColors);

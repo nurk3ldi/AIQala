@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 
-import { DraftCommentDto, AnalyzeIssueDto, ModerateTextDto } from './dto/ai.dto';
+import { DraftCommentDto, AnalyzeIssueDto, ModerateTextDto, EnhanceDescriptionDto, ChatDto } from './dto/ai.dto';
 import { AiService } from './ai.service';
 
 export class AiController {
@@ -17,6 +17,24 @@ export class AiController {
 
   analyzeIssue = async (request: Request, response: Response): Promise<void> => {
     const result = await this.aiService.analyzeIssue(request.body as AnalyzeIssueDto);
+
+    response.status(200).json({
+      success: true,
+      data: result,
+    });
+  };
+
+  enhanceDescription = async (request: Request, response: Response): Promise<void> => {
+    const result = await this.aiService.enhanceDescription(request.body as EnhanceDescriptionDto);
+
+    response.status(200).json({
+      success: true,
+      data: result,
+    });
+  };
+
+  chat = async (request: Request, response: Response): Promise<void> => {
+    const result = await this.aiService.chat(request.body as ChatDto);
 
     response.status(200).json({
       success: true,

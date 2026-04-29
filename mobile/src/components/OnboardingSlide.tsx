@@ -3,7 +3,9 @@ import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
 import { OnboardingArt } from './OnboardingArt';
 import { OnboardingItem } from '../data/onboarding';
-import { colors } from '../theme/colors';
+import { ThemeColors, lightColors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { useLanguage } from '../theme/LanguageContext';
 
 type OnboardingSlideProps = {
   item: OnboardingItem;
@@ -11,6 +13,9 @@ type OnboardingSlideProps = {
 };
 
 export function OnboardingSlide({ item, index }: OnboardingSlideProps) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  styles = createStyles(theme.colors);
   const transitionValue = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -42,14 +47,14 @@ export function OnboardingSlide({ item, index }: OnboardingSlideProps) {
     <View style={styles.container}>
       <Animated.View style={[styles.copy, copyStyle]}>
         <Text style={styles.kicker}>{item.kicker}</Text>
-        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.title}>{t(item.titleKey)}</Text>
       </Animated.View>
       <OnboardingArt index={index} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'space-between',
@@ -72,3 +77,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
 });
+
+let styles = createStyles(lightColors);

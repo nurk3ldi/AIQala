@@ -4,7 +4,7 @@ import { AppError } from '../../common/errors/app.error';
 import { env } from '../../config/env';
 import { AuthenticatedUser } from '../../types/auth';
 
-import { DraftCommentDto, AnalyzeIssueDto, ModerateTextDto } from './dto/ai.dto';
+import { DraftCommentDto, AnalyzeIssueDto, ModerateTextDto, EnhanceDescriptionDto } from './dto/ai.dto';
 import { GeminiClient } from './gemini.client';
 import { AiRepository } from './ai.repository';
 
@@ -37,10 +37,21 @@ interface RequestAnalysisResult {
   };
 }
 
+interface EnhanceDescriptionResult {
+  enhancedDescription: string;
+  summary: string;
+  keyIssues: string[];
+  suggestions: string[];
+}
+
 interface DraftCommentResult {
   commentText: string;
   internalSummary: string;
   suggestedStatus: string;
+}
+
+interface ChatResult {
+  answer: string;
 }
 
 const moderationSchema: Record<string, unknown> = {
@@ -109,6 +120,23 @@ const draftCommentSchema: Record<string, unknown> = {
     suggestedStatus: { type: 'string' },
   },
   required: ['commentText', 'internalSummary', 'suggestedStatus'],
+};
+
+const enhanceDescriptionSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    enhancedDescription: { type: 'string' },
+    summary: { type: 'string' },
+    keyIssues: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    suggestions: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+  },
+  required: ['enhancedDescription', 'summary', 'keyIssues', 'suggestions'],
 };
 
 export class AiService {
@@ -216,6 +244,73 @@ export class AiService {
             name: matchedOrganization.name,
           }
         : null,
+    };
+  }
+
+  async enhanceDescription(payload: { description: string; title?: string }) {
+    const result = await this.geminiClient.generateStructured<EnhanceDescriptionResult>({
+      model: env.ai.draftModel,
+      systemInstruction: [
+        'You are an AI assistant that helps improve issue descriptions for a Smart City reporting platform.',
+        'Enhance the provided description to make it clearer, more professional, and more actionable.',
+        'Preserve the original meaning while improving clarity and adding relevant details.',
+        'Identify key issues and provide practical suggestions.',
+        'Write all output text fields in Kazakh.',
+        'Return strict JSON only.',
+      ].join(' '),
+      prompt: [
+        'Please enhance this issue description:',
+        `Title: ${payload.title || 'Not provided'}`,
+        `Original description:\n${payload.description}`,
+        'Provide an enhanced version that is more clear, professional, and actionable while preserving the original meaning.',
+        'Also identify key issues mentioned and provide improvement suggestions.',
+      ].join('\n\n'),
+      schema: enhanceDescriptionSchema,
+      temperature: 0.5,
+      maxOutputTokens: 1200,
+    });
+
+    return {
+      enhancedDescription: result.enhancedDescription.trim(),
+      summary: result.summary.trim(),
+      keyIssues: result.keyIssues ?? [],
+      suggestions: result.suggestions ?? [],
+    };
+  }
+
+  async chat(payload: { message: string; cityId?: string }) {
+    const chatSchema: Record<string, unknown> = {
+      type: 'object',
+      properties: {
+        answer: { type: 'string' },
+      },
+      required: ['answer'],
+    };
+
+    const promptParts = [
+      "You are an expert assistant about municipal services and city information. Answer user questions about the city clearly and helpfully in Kazakh.",
+      `User question:\n${payload.message}`,
+    ];
+
+    if (payload.cityId) {
+      promptParts.unshift(`Context: question is about city with id ${payload.cityId}`);
+    }
+
+    const result = await this.geminiClient.generateStructured<ChatResult>({
+      model: env.ai.draftModel,
+      systemInstruction: [
+        'You are a helpful assistant for a Smart City platform.',
+        'Answer concisely and in Kazakh.',
+        'Return strict JSON only with the required schema.',
+      ].join(' '),
+      prompt: promptParts.join('\n\n'),
+      schema: chatSchema,
+      temperature: 0.3,
+      maxOutputTokens: 800,
+    });
+
+    return {
+      answer: result.answer.trim(),
     };
   }
 

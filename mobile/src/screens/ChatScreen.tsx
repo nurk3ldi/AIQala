@@ -17,7 +17,10 @@ import {
 import { env } from '../config/env';
 import { AuthResult } from '../services/auth';
 import { IssueRequest, RequestComment, addChatMessage, getRequestDetail, listRequests } from '../services/requests';
-import { colors } from '../theme/colors';
+import { ThemeColors, lightColors } from '../theme/colors';
+import { AnimatedListItem, AnimatedScreen } from '../components/AnimatedPrimitives';
+import { useLanguage } from '../theme/LanguageContext';
+import { useTheme } from '../theme/ThemeContext';
 
 type ChatScreenProps = {
   auth: AuthResult;
@@ -42,6 +45,10 @@ const formatDate = (value?: string) => {
 const getTime = (comment: RequestComment) => new Date(comment.createdAt ?? 0).getTime();
 
 export function ChatScreen({ auth }: ChatScreenProps) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const colors = theme.colors;
+  styles = createStyles(colors);
   const [requests, setRequests] = React.useState<IssueRequest[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState('');
@@ -137,45 +144,46 @@ export function ChatScreen({ auth }: ChatScreenProps) {
 
   const renderDialogList = () => (
     <View style={styles.screen}>
-      <View style={styles.header}>
+      <AnimatedScreen style={styles.header}>
         <View>
-          <Text style={styles.eyebrow}>AIQala</Text>
-          <Text style={styles.title}>Чат</Text>
+          <Text style={styles.title}>{t('chat')}</Text>
         </View>
         <View style={styles.counterPill}>
           <Text style={styles.counterText}>{requests.length}</Text>
         </View>
-      </View>
+      </AnimatedScreen>
 
       <View style={styles.searchBox}>
         <Ionicons name="search" size={18} color={colors.muted} />
-        <TextInput value={search} onChangeText={setSearch} placeholder="Өтінімді іздеу" placeholderTextColor={colors.muted} style={styles.searchInput} />
+        <TextInput value={search} onChangeText={setSearch} placeholder={t('searchRequest')} placeholderTextColor={colors.muted} style={styles.searchInput} />
       </View>
 
       {loading ? (
         <View style={styles.loadingState}>
           <ActivityIndicator color={colors.accent} />
-          <Text style={styles.loadingText}>Чат жүктелуде...</Text>
+          <Text style={styles.loadingText}>{t('chatLoading')}</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.dialogList}>
-          {filteredRequests.map((request) => {
+          {filteredRequests.map((request, index) => {
             const chatCount = (request.comments ?? []).filter((comment) => comment.source === 'chat').length;
             return (
-              <Pressable key={request.id} style={styles.dialogCard} onPress={() => void openThread(request)}>
+              <AnimatedListItem index={index} key={request.id}>
+              <Pressable style={styles.dialogCard} onPress={() => void openThread(request)}>
                 <View style={styles.dialogIcon}>
                   <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.accent} />
                 </View>
                 <View style={styles.dialogCopy}>
                   <Text style={styles.dialogTitle} numberOfLines={2}>{request.title}</Text>
-                  <Text style={styles.dialogMeta} numberOfLines={1}>{request.organization?.name ?? 'Ұйым әлі тағайындалмаған'}</Text>
-                  <Text style={styles.dialogFooter}>{chatCount ? `${chatCount} хабар` : 'Хабар жоқ'} {request.updatedAt ? `• ${formatDate(request.updatedAt)}` : ''}</Text>
+                    <Text style={styles.dialogMeta} numberOfLines={1}>{request.organization?.name ?? t('organizationNotAssignedYet')}</Text>
+                    <Text style={styles.dialogFooter}>{chatCount ? `${chatCount} ${t('messageCount')}` : t('noMessage')} {request.updatedAt ? `• ${formatDate(request.updatedAt)}` : ''}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.muted} />
               </Pressable>
+              </AnimatedListItem>
             );
           })}
-          {!filteredRequests.length ? <Text style={styles.emptyText}>Чат табылмады</Text> : null}
+          {!filteredRequests.length ? <Text style={styles.emptyText}>{t('chatNotFound')}</Text> : null}
         </ScrollView>
       )}
     </View>
@@ -193,7 +201,7 @@ export function ChatScreen({ auth }: ChatScreenProps) {
         </Pressable>
         <View style={styles.threadTitleBlock}>
           <Text style={styles.threadTitle} numberOfLines={1}>{activeRequest.title}</Text>
-          <Text style={styles.threadSubtitle} numberOfLines={1}>{activeRequest.organization?.name ?? 'Ұйым тағайындалмаған'}</Text>
+          <Text style={styles.threadSubtitle} numberOfLines={1}>{activeRequest.organization?.name ?? t('organizationNotAssigned')}</Text>
         </View>
         <View style={styles.headerButton}>
           <Ionicons name="document-text-outline" size={20} color={colors.accent} />
@@ -207,14 +215,14 @@ export function ChatScreen({ auth }: ChatScreenProps) {
       {threadLoading ? <ActivityIndicator color={colors.accent} style={styles.threadLoader} /> : null}
 
       <ScrollView ref={messagesRef} contentContainerStyle={styles.messagesContent}>
-        {messages.map((comment) => {
+        {messages.map((comment, index) => {
           const mine = comment.authorUserId === auth.user.id;
           const authorName = mine
-            ? 'Сіз'
-            : comment.authorOrganization?.name ?? comment.authorUser?.fullName ?? activeRequest.organization?.name ?? 'Белгісіз';
+            ? t('you')
+            : comment.authorOrganization?.name ?? comment.authorUser?.fullName ?? activeRequest.organization?.name ?? t('unknown');
           const avatarUrl = comment.authorUser?.avatarUrl ?? comment.authorOrganization?.logoUrl ?? (mine ? auth.user.avatarUrl : null);
           return (
-            <View key={comment.id} style={[styles.messageRow, mine && styles.messageRowMine]}>
+            <AnimatedListItem index={index} key={comment.id} style={[styles.messageRow, mine && styles.messageRowMine]}>
               {!mine ? <Avatar name={authorName} uri={avatarUrl} /> : null}
               <View style={[styles.messageBubble, mine && styles.messageBubbleMine]}>
                 <View style={styles.messageMeta}>
@@ -224,15 +232,15 @@ export function ChatScreen({ auth }: ChatScreenProps) {
                 <Text style={[styles.messageText, mine && styles.messageTextMine]}>{comment.text}</Text>
               </View>
               {mine ? <Avatar name={authorName} uri={auth.user.avatarUrl} /> : null}
-            </View>
+            </AnimatedListItem>
           );
         })}
-        {!messages.length ? <Text style={styles.emptyText}>Әзірге хабар жоқ. Бірінші хабарды жазыңыз.</Text> : null}
+        {!messages.length ? <Text style={styles.emptyText}>{t('chatEmpty')}</Text> : null}
       </ScrollView>
 
       {!canSend ? (
         <View style={styles.lockedComposer}>
-          <Text style={styles.lockedText}>Чат ұйым тағайындалғаннан кейін ашылады.</Text>
+          <Text style={styles.lockedText}>{t('chatLocked')}</Text>
         </View>
       ) : (
         <>
@@ -242,7 +250,7 @@ export function ChatScreen({ auth }: ChatScreenProps) {
               multiline
               value={messageText}
               onChangeText={setMessageText}
-              placeholder="Хабар жазыңыз..."
+              placeholder={t('messagePlaceholder')}
               placeholderTextColor={colors.muted}
               style={styles.composerInput}
             />
@@ -261,6 +269,9 @@ export function ChatScreen({ auth }: ChatScreenProps) {
 }
 
 function Avatar({ name, uri }: { name: string; uri?: string | null }) {
+  const { colors } = useTheme();
+  styles = createStyles(colors);
+
   return (
     <View style={styles.avatar}>
       {uri ? (
@@ -272,7 +283,7 @@ function Avatar({ name, uri }: { name: string; uri?: string | null }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     minHeight: 72,
@@ -312,7 +323,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -348,7 +359,7 @@ const styles = StyleSheet.create({
   avatar: { width: 34, height: 34, borderRadius: 13, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatarImage: { width: '100%', height: '100%' },
   avatarText: { color: colors.white, fontSize: 13, fontWeight: '900' },
-  messageBubble: { maxWidth: '76%', borderRadius: 18, borderBottomLeftRadius: 6, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, padding: 10 },
+  messageBubble: { maxWidth: '76%', borderRadius: 18, borderBottomLeftRadius: 6, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 10 },
   messageBubbleMine: { borderBottomLeftRadius: 18, borderBottomRightRadius: 6, backgroundColor: colors.accent, borderColor: colors.accent },
   messageMeta: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 4 },
   messageAuthor: { color: colors.accent, fontSize: 12, fontWeight: '900' },
@@ -359,7 +370,7 @@ const styles = StyleSheet.create({
   messageTextMine: { color: colors.white },
   lockedComposer: { minHeight: 64, borderTopWidth: 1, borderTopColor: colors.border, padding: 12, justifyContent: 'center' },
   lockedText: { color: colors.muted, textAlign: 'center', fontWeight: '800' },
-  keyboardCover: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.white },
+  keyboardCover: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface },
   composer: {
     position: 'absolute',
     left: 0,
@@ -367,7 +378,7 @@ const styles = StyleSheet.create({
     minHeight: 72,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 8,
@@ -388,3 +399,5 @@ const styles = StyleSheet.create({
   sendButton: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   disabled: { opacity: 0.45 },
 });
+
+let styles = createStyles(lightColors);

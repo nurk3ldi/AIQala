@@ -33,6 +33,22 @@ export class AnalyzeIssueDto {
   districtId?: string;
 }
 
+export class EnhanceDescriptionDto {
+  @IsString()
+  @Length(10, 4000)
+  description!: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 500)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 200)
+  language?: string = 'kk';
+}
+
 export class DraftCommentDto {
   @IsOptional()
   @IsIn(DRAFT_OBJECTIVES)
@@ -61,4 +77,14 @@ export class DraftCommentDto {
   @IsString()
   @Length(0, 1000)
   extraInstructions?: string;
+}
+
+export class ChatDto {
+  @IsString()
+  @Length(1, 2000)
+  message!: string;
+
+  @IsOptional()
+  @IsUUID()
+  cityId?: string;
 }

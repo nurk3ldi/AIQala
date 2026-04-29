@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, UrlTile } from 'react-native-maps';
 import * as Location from 'expo-location';
 
 import { env } from '../config/env';
 import { AuthResult } from '../services/auth';
-import { IssueRequest, RequestPriority, RequestStatus, addRequestComment, getRequestDetail, listMapRequests } from '../services/requests';
-import { colors } from '../theme/colors';
+import { IssueRequest, RequestPriority, RequestStatus, addRequestComment, getRequestDetail, listMapRequests, enhanceDescription, sendAiChat } from '../services/requests';
+import { ThemeColors, lightColors } from '../theme/colors';
+import { AnimatedScreen } from '../components/AnimatedPrimitives';
+import { useLanguage } from '../theme/LanguageContext';
+import { useTheme } from '../theme/ThemeContext';
 
 type HomeMapScreenProps = {
   auth: AuthResult;
@@ -25,11 +28,23 @@ type UserLocation = {
   longitude: number;
 };
 
+type AIChatMessage = {
+  id: string;
+  text: string;
+  isUser: boolean;
+  timestamp: Date;
+};
+
 const DEFAULT_REGION = {
   latitude: 48.0196,
   longitude: 66.9237,
   latitudeDelta: 28,
   longitudeDelta: 34,
+};
+
+const USER_REGION_DELTA = {
+  latitudeDelta: 0.012,
+  longitudeDelta: 0.012,
 };
 
 const PHOTO_VIEWER_CLOSE_TOP = (StatusBar.currentHeight ?? 0) + 40;
@@ -38,18 +53,6 @@ const statusColors: Record<RequestStatus, string> = {
   accepted: '#dc2626',
   in_progress: '#ca8a04',
   resolved: '#15803d',
-};
-
-const statusLabels: Record<RequestStatus, string> = {
-  accepted: 'Жаңа мәселе',
-  in_progress: 'Өңдеуде',
-  resolved: 'Шешілген',
-};
-
-const priorityLabels: Record<RequestPriority, string> = {
-  low: 'Төмен',
-  medium: 'Орташа',
-  high: 'Жоғары',
 };
 
 const priorityColors: Record<RequestPriority, string> = {
@@ -101,7 +104,7 @@ const formatMapDistance = (latitudeDelta: number) => {
 
 const formatDate = (value?: string) => {
   if (!value) {
-    return 'Көрсетілмеген';
+    return '—';
   }
 
   const date = new Date(value);
@@ -120,6 +123,10 @@ const formatDate = (value?: string) => {
 };
 
 export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }: HomeMapScreenProps) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const colors = theme.colors;
+  styles = createStyles(colors);
   const [issues, setIssues] = useState<MapIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -127,6 +134,7 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
   const [hideIssues, setHideIssues] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const mapRef = useRef<MapView | null>(null);
+  const hasCenteredOnUserRef = useRef(false);
   const distanceHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [region, setRegion] = useState<typeof DEFAULT_REGION>(DEFAULT_REGION);
   const [showDistance, setShowDistance] = useState(false);
@@ -137,6 +145,26 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
   const [commentText, setCommentText] = useState('');
   const [commentBusy, setCommentBusy] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  const [aiChatMessages, setAiChatMessages] = useState<AIChatMessage[]>([]);
+  const [aiChatInput, setAiChatInput] = useState('');
+  const [aiChatBusy, setAiChatBusy] = useState(false);
+  const aiChatScrollRef = useRef<ScrollView | null>(null);
+  const pulseValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.timing(pulseValue, {
+        toValue: 1,
+        duration: 1600,
+        useNativeDriver: true,
+      }),
+    );
+
+    animation.start();
+
+    return () => animation.stop();
+  }, [pulseValue]);
 
   useEffect(() => {
     let active = true;
@@ -158,7 +186,7 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
           });
         }
       } catch (err) {
-        // геолокация алмасқан кезде мол әрі қарай жүргін
+        // Keep the map usable when geolocation is unavailable.
         console.error('Location error:', err);
       }
     };
@@ -169,6 +197,25 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!userLocation || hasCenteredOnUserRef.current) {
+      return;
+    }
+
+    const nextRegion = {
+      latitude: userLocation.latitude,
+      longitude: userLocation.longitude,
+      ...USER_REGION_DELTA,
+    };
+
+    hasCenteredOnUserRef.current = true;
+    setRegion(nextRegion);
+
+    requestAnimationFrame(() => {
+      mapRef.current?.animateToRegion(nextRegion, 500);
+    });
+  }, [userLocation]);
 
   useEffect(() => {
     let active = true;
@@ -185,7 +232,7 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
         }
       } catch (loadError) {
         if (active) {
-          setError(loadError instanceof Error ? loadError.message : 'Карта жүктелмеді');
+          setError(loadError instanceof Error ? loadError.message : t('mapLoadFailed'));
           setIssues([]);
         }
       } finally {
@@ -212,8 +259,8 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
   );
 
   useEffect(() => {
-    onIssueDetailOpenChange?.(Boolean(selectedIssue));
-  }, [onIssueDetailOpenChange, selectedIssue]);
+    onIssueDetailOpenChange?.(Boolean(selectedIssue) || isAIChatOpen);
+  }, [onIssueDetailOpenChange, selectedIssue, isAIChatOpen]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -251,12 +298,27 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
   const handleResetHeading = () => {
     if (!mapRef.current) return;
     const center = userLocation ?? { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude };
+    const nextRegion = {
+      latitude: center.latitude,
+      longitude: center.longitude,
+      ...(userLocation ? USER_REGION_DELTA : {
+        latitudeDelta: DEFAULT_REGION.latitudeDelta,
+        longitudeDelta: DEFAULT_REGION.longitudeDelta,
+      }),
+    };
 
     try {
       mapRef.current.animateCamera({ center, heading: 0 }, { duration: 500 });
     } catch (e) {
       // fallback: just animate to region
-      mapRef.current.animateToRegion({ latitude: center.latitude, longitude: center.longitude, latitudeDelta: DEFAULT_REGION.latitudeDelta, longitudeDelta: DEFAULT_REGION.longitudeDelta }, 500);
+      mapRef.current.animateToRegion(nextRegion, 500);
+    }
+
+    if (userLocation) {
+      setRegion(nextRegion);
+      requestAnimationFrame(() => {
+        mapRef.current?.animateToRegion(nextRegion, 500);
+      });
     }
   };
 
@@ -266,8 +328,7 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
     mapRef.current.animateToRegion({
       latitude: userLocation.latitude,
       longitude: userLocation.longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
+      ...USER_REGION_DELTA,
     }, 500);
   };
 
@@ -348,6 +409,10 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
 
   const selectedIssueMedia = selectedIssue?.media?.filter((item) => item.type === 'image') ?? [];
   const currentMedia = selectedIssueMedia[activeMediaIndex] ?? null;
+  const getStatusLabel = (value: RequestStatus) =>
+    value === 'accepted' ? t('newIssue') : value === 'in_progress' ? t('inProgress') : t('resolved');
+  const getPriorityLabel = (value: RequestPriority) =>
+    value === 'low' ? t('low') : value === 'medium' ? t('medium') : t('high');
 
   const showPreviousMedia = () => {
     if (selectedIssueMedia.length <= 1) {
@@ -400,6 +465,29 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
     }
   };
 
+  const sendAiMessage = async () => {
+    const text = aiChatInput.trim();
+    if (!text || aiChatBusy) return;
+
+    const userMessage: AIChatMessage = { id: `${Date.now()}-u`, text, isUser: true, timestamp: new Date() };
+    setAiChatMessages((m) => [...m, userMessage]);
+    setAiChatInput('');
+    setAiChatBusy(true);
+
+    try {
+      const answer = await sendAiChat(auth.accessToken, text);
+      const botMessage: AIChatMessage = { id: `${Date.now()}-b`, text: answer, isUser: false, timestamp: new Date() };
+      setAiChatMessages((m) => [...m, botMessage]);
+      // scroll to bottom after next frame
+      requestAnimationFrame(() => aiChatScrollRef.current?.scrollToEnd({ animated: true }));
+    } catch (err) {
+      const botMessage: AIChatMessage = { id: `${Date.now()}-err`, text: (err instanceof Error ? err.message : 'Қате болды'), isUser: false, timestamp: new Date() };
+      setAiChatMessages((m) => [...m, botMessage]);
+    } finally {
+      setAiChatBusy(false);
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <MapView
@@ -442,11 +530,29 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
             coordinate={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
             key={`user-location-${hideIssues ? 'issues-hidden' : 'issues-visible'}`}
             tracksViewChanges
-            title="Менің орным"
+            title={t('myLocation')}
             zIndex={1000}
           >
             <View style={styles.userLocationContainer}>
-              <View style={styles.userLocationPulse} />
+              <Animated.View
+                style={[
+                  styles.userLocationPulse,
+                  {
+                    opacity: pulseValue.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.32, 0],
+                    }),
+                    transform: [
+                      {
+                        scale: pulseValue.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.65, 1.25],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
               <View style={styles.userLocationMarker}>
                 {auth.user.avatarUrl ? (
                   <Image source={{ uri: `${env.apiUrl}${auth.user.avatarUrl}` }} style={styles.userLocationAvatar} />
@@ -484,6 +590,12 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
         </Pressable>
       </View>
 
+      {!selectedIssue && !isAIChatOpen && (
+        <Pressable style={styles.aiButton} onPress={() => { setIsAIChatOpen(true); closeIssuePanel(); }}>
+          <Ionicons name="sparkles" size={24} color={colors.white} />
+        </Pressable>
+      )}
+
       <View style={styles.zoomControls}>
         <Pressable style={styles.zoomButton} onPress={handleZoomIn}>
           <Ionicons name="add" size={20} color={colors.accent} />
@@ -504,7 +616,7 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
       {loading ? (
         <View style={styles.statePanel}>
           <ActivityIndicator color={colors.accent} />
-          <Text style={styles.stateText}>Карта жүктеліп жатыр...</Text>
+          <Text style={styles.stateText}>{t('mapLoading')}</Text>
         </View>
       ) : null}
 
@@ -512,7 +624,7 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
         <View style={styles.statePanel}>
           <Text style={styles.stateText}>{error}</Text>
           <Pressable onPress={() => setReloadKey((current) => current + 1)} style={styles.retryButton}>
-            <Text style={styles.retryText}>Қайталау</Text>
+            <Text style={styles.retryText}>{t('retry')}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -525,17 +637,17 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
           pointerEvents="box-none"
           style={[styles.issuePanelAvoidingView, { bottom: keyboardHeight }]}
         >
-        <View style={styles.issuePanel}>
+        <AnimatedScreen distance={24} style={styles.issuePanel}>
           <View style={styles.issuePanelHandle} />
           <View style={styles.issuePanelHeader}>
             <View style={styles.issuePanelTitleBlock}>
               <View style={styles.issueBadges}>
                 <View style={[styles.issueBadge, { backgroundColor: statusColors[selectedIssue.status] }]}>
-                  <Text style={styles.issueBadgeText}>{statusLabels[selectedIssue.status]}</Text>
+                  <Text style={styles.issueBadgeText}>{getStatusLabel(selectedIssue.status)}</Text>
                 </View>
                 {selectedIssue.priority ? (
                   <View style={[styles.issueBadge, { backgroundColor: priorityColors[selectedIssue.priority] }]}>
-                    <Text style={styles.issueBadgeText}>{priorityLabels[selectedIssue.priority]}</Text>
+                    <Text style={styles.issueBadgeText}>{getPriorityLabel(selectedIssue.priority)}</Text>
                   </View>
                 ) : null}
               </View>
@@ -551,7 +663,7 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
           {detailLoading ? (
             <View style={styles.issueLoadingRow}>
               <ActivityIndicator color={colors.accent} />
-              <Text style={styles.issueLoadingText}>Ақпарат жүктелуде...</Text>
+              <Text style={styles.issueLoadingText}>{t('loadingInfo')}</Text>
             </View>
           ) : null}
 
@@ -576,26 +688,26 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
               </View>
             ) : null}
 
-            <Text style={styles.issueDescription}>{selectedIssue.description || 'Сипаттама жоқ'}</Text>
+            <Text style={styles.issueDescription}>{selectedIssue.description || t('noDescription')}</Text>
 
             <View style={styles.issueInfoGrid}>
-              <IssueInfoItem icon="folder-open-outline" label="Санат" value={selectedIssue.category?.name ?? 'Көрсетілмеген'} />
+              <IssueInfoItem icon="folder-open-outline" label={t('category')} value={selectedIssue.category?.name ?? t('notSpecified')} />
               <IssueInfoItem
                 icon="location-outline"
-                label="Қала"
-                value={`${selectedIssue.city?.name ?? 'Көрсетілмеген'}${selectedIssue.district?.name ? ` / ${selectedIssue.district.name}` : ''}`}
+                label={t('city')}
+                value={`${selectedIssue.city?.name ?? t('notSpecified')}${selectedIssue.district?.name ? ` / ${selectedIssue.district.name}` : ''}`}
               />
-              <IssueInfoItem icon="person-outline" label="Өтініш иесі" value={selectedIssue.requester?.fullName ?? 'Көрсетілмеген'} />
-              <IssueInfoItem icon="business-outline" label="Ұйым" value={selectedIssue.organization?.name ?? 'Тағайындалмаған'} />
-              <IssueInfoItem icon="calendar-outline" label="Құрылған уақыты" value={formatDate(selectedIssue.createdAt)} />
+              <IssueInfoItem icon="person-outline" label={t('issueOwner')} value={selectedIssue.requester?.fullName ?? t('notSpecified')} />
+              <IssueInfoItem icon="business-outline" label={t('organization')} value={selectedIssue.organization?.name ?? t('notAssigned')} />
+              <IssueInfoItem icon="calendar-outline" label={t('createdAt')} value={formatDate(selectedIssue.createdAt)} />
             </View>
 
             <View style={styles.commentSection}>
-              <Text style={styles.commentTitle}>Комментарийлер</Text>
+              <Text style={styles.commentTitle}>{t('comments')}</Text>
               {(selectedIssue.comments ?? []).filter((comment) => comment.source !== 'chat').map((comment) => (
                 <View style={styles.commentItem} key={comment.id}>
                   <Text style={styles.commentAuthor}>
-                    {comment.authorOrganization?.name ?? comment.authorUser?.fullName ?? 'Белгісіз'}
+                    {comment.authorOrganization?.name ?? comment.authorUser?.fullName ?? t('unknown')}
                   </Text>
                   <Text style={styles.commentText}>{comment.text}</Text>
                 </View>
@@ -604,7 +716,7 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
                 <TextInput
                   multiline
                   onChangeText={setCommentText}
-                  placeholder="Комментарий жазу"
+                  placeholder={t('commentPlaceholder')}
                   placeholderTextColor={colors.muted}
                   style={styles.commentInput}
                   value={commentText}
@@ -621,8 +733,72 @@ export function HomeMapScreen({ auth, onIssueDetailOpenChange, onProfilePress }:
               </View>
             </View>
           </ScrollView>
-        </View>
+        </AnimatedScreen>
         </KeyboardAvoidingView>
+        </>
+      ) : null}
+
+      {isAIChatOpen ? (
+        <>
+        {keyboardHeight > 0 && Platform.OS === 'ios' ? <View style={[styles.keyboardGapCover, { height: keyboardHeight }]} /> : null}
+        <View style={{ position: 'absolute', top: 60, left: 0, right: 0, bottom: Platform.OS === 'ios' ? keyboardHeight : 0 }} pointerEvents="box-none">
+          <AnimatedScreen distance={24} style={[styles.aiChatPanel, { flex: 1, maxHeight: undefined, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }]}>
+            <View style={styles.issuePanelHandle} />
+            <View style={styles.issuePanelHeader}>
+              <View style={styles.issuePanelTitleBlock}>
+                <Text style={styles.issueTitle}>AI Qala</Text>
+              </View>
+              <Pressable style={styles.issueCloseButton} onPress={() => setIsAIChatOpen(false)}>
+                <Ionicons name="close" size={20} color={colors.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView 
+              ref={aiChatScrollRef}
+              showsVerticalScrollIndicator={false} 
+              style={styles.aiChatScroll}
+              contentContainerStyle={styles.aiChatScrollContent}
+            >
+              {aiChatMessages.length === 0 ? (
+                <Text style={styles.aiEmptyText}>Қала бойынша немесе мәселелер туралы сұрақтарыңызды қойыңыз.</Text>
+              ) : null}
+              {aiChatMessages.map(msg => (
+                <View key={msg.id} style={[styles.aiMessageRow, msg.isUser ? styles.aiMessageRowUser : styles.aiMessageRowBot]}>
+                  <View style={[styles.aiMessageBubble, msg.isUser ? styles.aiMessageBubbleUser : styles.aiMessageBubbleBot]}>
+                    <Text style={[styles.aiMessageText, msg.isUser ? styles.aiMessageTextUser : styles.aiMessageTextBot]}>
+                      {msg.text}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+              {aiChatBusy && (
+                <View style={[styles.aiMessageRow, styles.aiMessageRowBot]}>
+                  <View style={[styles.aiMessageBubble, styles.aiMessageBubbleBot]}>
+                    <ActivityIndicator size="small" color={colors.accent} />
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.commentComposer}>
+              <TextInput
+                multiline
+                onChangeText={setAiChatInput}
+                placeholder="Сұрағыңызды жазыңыз..."
+                placeholderTextColor={colors.muted}
+                style={styles.commentInput}
+                value={aiChatInput}
+              />
+              <Pressable
+                disabled={aiChatBusy || !aiChatInput.trim()}
+                onPress={sendAiMessage}
+                style={[styles.commentSendButton, (!aiChatInput.trim() || aiChatBusy) && styles.commentSendButtonDisabled]}
+              >
+                {aiChatBusy ? <ActivityIndicator color={colors.white} /> : <Ionicons name="send" size={18} color={colors.white} />}
+              </Pressable>
+            </View>
+          </AnimatedScreen>
+        </View>
         </>
       ) : null}
 
@@ -660,6 +836,9 @@ function IssueInfoItem({
   label: string;
   value: string;
 }) {
+  const { colors } = useTheme();
+  styles = createStyles(colors);
+
   return (
     <View style={styles.issueInfoItem}>
       <View style={styles.issueInfoIcon}>
@@ -673,7 +852,7 @@ function IssueInfoItem({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -688,7 +867,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.border,
     alignItems: 'center',
@@ -706,7 +885,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.border,
     alignItems: 'center',
@@ -745,7 +924,7 @@ const styles = StyleSheet.create({
   cityPill: {
     minHeight: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: 'center',
@@ -759,7 +938,7 @@ const styles = StyleSheet.create({
   legend: {
     minHeight: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: 'row',
@@ -799,7 +978,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
   },
   statePanel: {
     position: 'absolute',
@@ -808,7 +987,7 @@ const styles = StyleSheet.create({
     bottom: 18,
     minHeight: 54,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: 'row',
@@ -879,6 +1058,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  aiButton: {
+    position: 'absolute',
+    bottom: 18,
+    left: 14,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.black,
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+  },
   bottomButtons: {
     position: 'absolute',
     bottom: 18,
@@ -889,7 +1083,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.border,
     alignItems: 'center',
@@ -907,7 +1101,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 50,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.border,
     overflow: 'hidden',
@@ -953,7 +1147,7 @@ const styles = StyleSheet.create({
     maxHeight: '68%',
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderBottomWidth: 0,
@@ -977,7 +1171,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    backgroundColor: colors.surface,
   },
   issuePanelHandle: {
     width: 42,
@@ -1167,7 +1361,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     fontWeight: '600',
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
   },
   commentSendButton: {
     width: 44,
@@ -1224,4 +1418,71 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
   },
+  aiChatPanel: {
+    width: '100%',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderBottomWidth: 0,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 14,
+    shadowColor: colors.black,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  aiChatScroll: {
+    flex: 1,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  aiChatScrollContent: {
+    paddingBottom: 20,
+    gap: 12,
+  },
+  aiEmptyText: {
+    color: colors.muted,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  aiMessageRow: {
+    flexDirection: 'row',
+    width: '100%',
+  },
+  aiMessageRowUser: {
+    justifyContent: 'flex-end',
+  },
+  aiMessageRowBot: {
+    justifyContent: 'flex-start',
+  },
+  aiMessageBubble: {
+    maxWidth: '85%',
+    padding: 12,
+    borderRadius: 16,
+  },
+  aiMessageBubbleUser: {
+    backgroundColor: colors.accent,
+    borderBottomRightRadius: 4,
+  },
+  aiMessageBubbleBot: {
+    backgroundColor: colors.accentSoft,
+    borderBottomLeftRadius: 4,
+  },
+  aiMessageText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  aiMessageTextUser: {
+    color: colors.white,
+  },
+  aiMessageTextBot: {
+    color: colors.text,
+  },
 });
+
+let styles = createStyles(lightColors);

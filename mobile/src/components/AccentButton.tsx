@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme/colors';
+import { ThemeColors, lightColors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 type AccentButtonProps = {
   label: string;
@@ -8,6 +9,9 @@ type AccentButtonProps = {
 };
 
 export function AccentButton({ label, onPress }: AccentButtonProps) {
+  const theme = useTheme();
+  styles = createStyles(theme.colors);
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -22,7 +26,7 @@ export function AccentButton({ label, onPress }: AccentButtonProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   button: {
     minHeight: 58,
     borderRadius: 29,
@@ -51,7 +55,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -62,3 +66,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+let styles = createStyles(lightColors);
